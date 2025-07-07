@@ -37,7 +37,5 @@ build/
 dist/
 *.egg-info/
 
-# Others
-*.sqlite3
 *.swp
 *.swo
