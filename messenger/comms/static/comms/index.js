@@ -1,3 +1,5 @@
+let mobile;
+
 window.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.iconstuff');
 
@@ -20,7 +22,9 @@ window.addEventListener('DOMContentLoaded', () => {
         defaultButton.classList.add('active');
 
     }
+    mobile = isMobile();
 });
+
 
 function isMobile() {
     return window.innerWidth <= 768; // or 600 or 480 depending on your layout
@@ -292,15 +296,18 @@ chatSearchInput.addEventListener('input', async () => {
             return;
         }
 
-        chatSearchResults.innerHTML = data.results.map(user => `
-      <div class="chat-search-result-item"
-           style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;"
-           data-user-id="${user.id}"
-           data-phone="${user.phone}">
-        <strong>${user.username}</strong><br/>
-        <small>${user.phone}</small>
-      </div>
-    `).join('');
+chatSearchResults.innerHTML = data.results.map(user => `
+  <div class="chat-search-result-item"
+       style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;"
+       data-user-id="${user.id}"
+       data-phone="${user.phone}">
+    ${
+      user.name
+        ? `<strong>${user.name}</strong><small>${user.phone}</small>`
+        : `<strong>${user.phone}</strong>`
+    }
+  </div>
+`).join('');
         chatSearchResults.style.display = 'block';
 
     } catch (e) {
@@ -360,14 +367,13 @@ async function startChatWithUser(phone) {
         console.log('Updating right-top with user info');
         const topDiv = document.querySelector('.right-top');
         const user = data.other_user;
-        const isMobile = window.innerWidth <= 768;
         topDiv.innerHTML = `
   <div class="chat-top-bar" style="display: flex; justify-content: space-between; align-items: center; height: 100%; padding:16px;">
     <div class="chat-top-bar-left" style="display: flex; align-items: center; gap: 15px;">
-      ${isMobile ? `
-        <button id="back-button" style="border: none; background: none; font-size: 1.2rem; cursor: pointer;">
-          <i class="fas fa-arrow-left"></i>
-        </button>
+      ${mobile ? `
+<button id="back-button">
+  <i class="fas fa-arrow-left"></i>
+</button>
       ` : ''}
       <img src="${user.profile_pic}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
       <div style="font-weight: 400; font-size:16px;">${user.username}</div>
@@ -387,7 +393,7 @@ async function startChatWithUser(phone) {
   </div>
 `;
 
-        if (isMobile) {
+        if (mobile) {
             document.getElementById('back-button').addEventListener('click', () => {
                 const body2 = document.querySelector('.body2');
                 const body3 = document.querySelector('.body3');
@@ -703,3 +709,4 @@ if (backFromSettings) {
         }
     });
 }
+
