@@ -908,6 +908,12 @@ overflow-y:auto;
 .chat-top-bar-left{
     gap: 6px !important;
 }
+.right-bottom-lower{
+    margin-bottom:25px;
+}
+.chat-input-wrapper{
+    margin-bottom:25px;
+}
 }
 
 @media (max-width: 768px) {
