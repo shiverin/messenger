@@ -909,7 +909,7 @@ overflow-y:auto;
     gap: 6px !important;
 }
 .right-bottom-lower{
-    margin-bottom:25px;
+    margin-bottom:50px;    /* formatting*/
 }
 .chat-input-wrapper{
     margin-bottom:25px;
