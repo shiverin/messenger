@@ -160,6 +160,7 @@ else:
     }
 
 CSRF_TRUSTED_ORIGINS = [
+    'https://messenger-ybyw.onrender.com',
     'https://*.ngrok-free.app', # This is critical for HTTPS ngrok URLs
     'http://localhost:8001',    # Or your dev server port
     'http://127.0.0.1:8001'     # Also good to include

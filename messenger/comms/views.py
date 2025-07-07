@@ -20,7 +20,6 @@ import phonenumbers
 from django.utils.timezone import localtime
 from django.views.decorators.csrf import csrf_exempt
 
-@csrf_exempt
 def index(request):
     if not request.user.is_authenticated:
         return redirect('login')
@@ -82,7 +81,7 @@ def index(request):
 def login_view(request):
     return render(request, "comms/login.html")
 
-@csrf_exempt
+
 def login_api(request):
     if request.method == 'POST':
         try:
@@ -100,12 +99,12 @@ def login_api(request):
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
-@csrf_exempt
+
 def logout_view(request):
     logout(request)
     return HttpResponseRedirect(reverse("index"))
 
-@csrf_exempt
+
 def register_view(request):
     if request.method == 'POST':
         try:
@@ -131,7 +130,7 @@ def register_view(request):
 
     return JsonResponse({'error': 'Invalid HTTP method'}, status=405)
 
-@csrf_exempt
+
 def check_phone(request):
     if request.method == "POST":
         data = json.loads(request.body)
@@ -141,7 +140,6 @@ def check_phone(request):
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 @login_required
-@csrf_exempt
 def setup(request):
     if request.method == 'POST':
         user = request.user
@@ -158,7 +156,6 @@ def setup(request):
 
 
 @login_required
-@csrf_exempt
 def setup_api(request):
     user = request.user
 
@@ -202,7 +199,6 @@ def setup_api(request):
         return JsonResponse({'error': 'Unsupported method'}, status=405)
 
 @login_required
-@csrf_exempt
 def search_users(request):
     query = request.GET.get('q', '').strip()
     if not query:
@@ -221,7 +217,7 @@ def search_users(request):
 
     return JsonResponse({'results': results})
 
-@csrf_exempt
+
 @api_view(['POST'])
 def get_or_create_chat(request):
     other_phone = request.data.get('phone')
@@ -277,7 +273,6 @@ def get_or_create_chat(request):
     })
 
 @login_required
-@csrf_exempt
 def mark_message_read(request, message_id):
     if request.method == "POST":
         try:
