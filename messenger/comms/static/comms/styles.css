@@ -975,7 +975,7 @@ overflow-y:auto;
 
 @media (max-width: 768px) {
   .mobile-only {
-    display: inline-block !important;
+    display: flex !important;
   }
 }
 
