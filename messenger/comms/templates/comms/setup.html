@@ -1,0 +1,44 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <title>{% block title %}Messenger{% endblock %}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+        <link href="{% static 'comms/setup.css' %}" rel="stylesheet">
+        <link rel="icon" type="image/x-icon" href="{% static 'comms/favicon.ico' %}">
+    </head>
+
+    <body>
+        {% if message %}
+            <div>{{ message }}</div>
+        {% endif %}
+        <div class="title">
+            Profile Info
+        </div>
+        <div class="descrip">
+            Please provide your name and an optional profile photo
+        </div>
+
+        <form action="{% url 'setup' %}" method="post" class="theform" autocomplete="off" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group" id="topform">
+                <input name="profile_picture" type="file" id="profile-pic" accept="image/*" style="display:none;" />
+                <img id="profile-preview"
+                    src="{% static 'comms/images/default-profile.png' %}"
+                    alt="Profile Preview"
+                    style="width:160px; height:160px; border-radius:50%; object-fit:cover; cursor:pointer;" />
+            </div>
+            <div class="form-group" id="bottomform">
+                <div class="input-group">
+                    <input class="form-control" type="text" name="name" id="name" placeholder="Type your name here" autocomplete="off" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block nextbutton">NEXT</button>
+        </form>
+    </body>
+    <script type="module" src="{% static 'comms/setup.js' %}"></script>
+
+</html>
