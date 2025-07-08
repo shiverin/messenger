@@ -164,9 +164,9 @@ else:
     }
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://*.ngrok-free.app', # This is critical for HTTPS ngrok URLs
-    'http://localhost:8001',    # Or your dev server port
-    'http://127.0.0.1:8001'     # Also good to include
+    "https://messenger-ybyw.onrender.com",
+    "http://localhost",
+    "http://127.0.0.1",
 ]
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
