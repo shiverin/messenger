@@ -3,11 +3,11 @@ from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
-from .models import User,Chat,Message
+from .models import User, Chat, Message, ArchivedChat
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Exists, OuterRef,Max
+from django.db.models import Count, Exists, OuterRef, Q, Max
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_GET
 import json
 import os
 from django.conf import settings
@@ -18,9 +18,38 @@ from django.contrib.auth import get_user_model
 from .serializers import ChatSerializer, MessageSerializer
 import phonenumbers
 from django.utils.timezone import localtime
-from django.views.decorators.csrf import csrf_exempt
 
-@csrf_exempt
+def build_chat_data(chat, user, unread_count=None, has_unread=None):
+    last_msg = chat.messages.order_by('-timestamp').first()
+    if not last_msg:
+        return None
+
+    others = chat.participants.exclude(id=user.id)
+    if others.exists():
+        other = others.first()
+        raw_phone = other.phone
+        formatted_phone = raw_phone[:3] + ' ' + raw_phone[3:] if raw_phone.startswith('+') and len(raw_phone) > 3 else raw_phone
+        name = other.name or formatted_phone
+        avatar = other.profile_picture.url if other.profile_picture else '/static/comms/images/default-profile.png'
+        phone = other.phone
+    else:
+        # Self chat
+        name = "You"
+        avatar = user.profile_picture.url if user.profile_picture else '/static/comms/images/default-profile.png'
+        phone = user.phone
+
+    return {
+        'id': chat.id,
+        'name': name,
+        'avatar': avatar,
+        'message': last_msg.text,
+        'time': localtime(last_msg.timestamp).strftime('%H:%M'),
+        'phone': phone,
+        'has_unread': has_unread if has_unread is not None else False,
+        'unread_count': unread_count if unread_count is not None else 0,
+    }
+
+@login_required
 def index(request):
     if not request.user.is_authenticated:
         return redirect('login')
@@ -30,59 +59,63 @@ def index(request):
 
     user = request.user
 
+    # Annotate all chats with last_message_time and total unread messages (including own)
     chats = Chat.objects.filter(participants=user).annotate(
-        last_message_time=Max('messages__timestamp')
+        last_message_time=Max('messages__timestamp'),
+        unread_total=Count('messages', filter=Q(messages__read=False)),  # all unread
     ).order_by('-last_message_time')
 
-    chat_list = []
+    # Archived and Favourite chat IDs
+    archived_chat_ids = set(
+        ArchivedChat.objects.filter(user=user).values_list('chat_id', flat=True)
+    )
+    favourite_chat_ids = set(user.favourite_chats.values_list('id', flat=True))
+
+    active_chats = []
+    archived_chats = []
 
     for chat in chats:
-        last_msg = chat.messages.order_by('-timestamp').first()
-        if not last_msg:
-            continue  # Skip chats with no messages
-        others = chat.participants.exclude(id=user.id)
+        # Check if self chat (only one participant)
+        is_self_chat = (chat.participants.count() == 1 and chat.participants.filter(id=user.id).exists())
 
-        if others.exists():
-            other = others.first()
-            raw_phone = other.phone
-            if raw_phone.startswith('+') and len(raw_phone) > 3:
-                formatted_phone = raw_phone[:3] + ' ' + raw_phone[3:]
-            else:
-                formatted_phone = raw_phone
-            name = other.name or formatted_phone
-            avatar = other.profile_picture.url if other.profile_picture else '/static/comms/images/default-profile.png'
-            phone = other.phone  # <-- use other.phone here
+        if is_self_chat:
+            # For self chat, unread_count = all unread messages (unread_total)
+            unread_count = chat.unread_total
         else:
-            # self-chat case
-            name = "You"
-            avatar=user.profile_picture.url if user.profile_picture else '/static/comms/images/default-profile.png'
-            phone = user.phone  # <-- use user.phone here!
+            # For normal chats, exclude unread messages sent by user
+            unread_count = chat.messages.filter(read=False).exclude(sender=user).count()
 
-        msg_preview = last_msg.text if last_msg else "(no messages yet)"
-        msg_time = localtime(last_msg.timestamp).strftime('%H:%M') if last_msg else ""
+        has_unread = unread_count > 0
 
-        chat_list.append({
-            'name': name,
-            'avatar': avatar,
-            'message': msg_preview,
-            'time': msg_time,
-            'phone': phone
-        })
+        chat_data = build_chat_data(chat, user, unread_count=unread_count, has_unread=has_unread)
+        if not chat_data:
+            continue
+
+        if chat.id in archived_chat_ids:
+            archived_chats.append(chat_data)
+        else:
+            active_chats.append(chat_data)
+
+    unread_chat_list = [c for c in active_chats if c['unread_count'] > 0]
+    favourite_chat_list = [c for c in active_chats if c['id'] in favourite_chat_ids]
 
     context = {
         "profile_pic": user.profile_picture.url if user.profile_picture else None,
         "name": user.name,
         "about": user.about,
-        "chats": chat_list,
+        "chats": active_chats,
+        "unreadchats": unread_chat_list,
+        "archived_chats": archived_chats,
+        "favouritechats": favourite_chat_list,
     }
 
-    return render(request, 'comms/index.html', context)
+    return render(request, "comms/index.html", context)
 
 
 def login_view(request):
     return render(request, "comms/login.html")
 
-@csrf_exempt
+
 def login_api(request):
     if request.method == 'POST':
         try:
@@ -100,12 +133,12 @@ def login_api(request):
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
-@csrf_exempt
+
 def logout_view(request):
     logout(request)
     return HttpResponseRedirect(reverse("index"))
 
-@csrf_exempt
+
 def register_view(request):
     if request.method == 'POST':
         try:
@@ -131,7 +164,7 @@ def register_view(request):
 
     return JsonResponse({'error': 'Invalid HTTP method'}, status=405)
 
-@csrf_exempt
+
 def check_phone(request):
     if request.method == "POST":
         data = json.loads(request.body)
@@ -140,8 +173,8 @@ def check_phone(request):
         return JsonResponse({'exists': exists})
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
+
 @login_required
-@csrf_exempt
 def setup(request):
     if request.method == 'POST':
         user = request.user
@@ -158,7 +191,6 @@ def setup(request):
 
 
 @login_required
-@csrf_exempt
 def setup_api(request):
     user = request.user
 
@@ -201,8 +233,8 @@ def setup_api(request):
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
 
+
 @login_required
-@csrf_exempt
 def search_users(request):
     query = request.GET.get('q', '').strip()
     if not query:
@@ -211,17 +243,25 @@ def search_users(request):
     # Include yourself in results
     users = User.objects.filter(phone__icontains=query)[:10]
 
-    results = [{
-        'id': user.id,
-        'username': user.username,
-        'phone': user.phone,
-        'name': user.name or user.username,
-        'profile_picture': user.profile_picture.url if user.profile_picture else None,
-    } for user in users]
+    results = []
+    for user in users:
+        raw_phone = user.phone
+        if raw_phone.startswith('+') and len(raw_phone) > 3:
+            formatted_phone = raw_phone[3:]
+        else:
+            formatted_phone = raw_phone
+
+        results.append({
+            'id': user.id,
+            'username': user.username,
+            'phone': formatted_phone,
+            'name': user.name,
+            'profile_picture': user.profile_picture.url if user.profile_picture else None,
+        })
 
     return JsonResponse({'results': results})
 
-@csrf_exempt
+
 @api_view(['POST'])
 def get_or_create_chat(request):
     other_phone = request.data.get('phone')
@@ -257,7 +297,7 @@ def get_or_create_chat(request):
         local_number = str(parsed.national_number)
     except phonenumbers.NumberParseException:
         country_code = ''
-        local_number = other_phone  # fallback
+        local_number = other_phone
 
     # Determine display name
     if not other_user.name:
@@ -276,8 +316,8 @@ def get_or_create_chat(request):
         'created': created
     })
 
+
 @login_required
-@csrf_exempt
 def mark_message_read(request, message_id):
     if request.method == "POST":
         try:
@@ -288,3 +328,128 @@ def mark_message_read(request, message_id):
         except Message.DoesNotExist:
             return JsonResponse({'error': 'Message not found'}, status=404)
     return JsonResponse({'error': 'Invalid method'}, status=405)
+
+
+@login_required
+@require_GET
+def chat_status_api(request):
+    phone = request.GET.get('phone')
+    user = request.user
+
+    if not phone:
+        return JsonResponse({'error': 'Missing phone parameter'}, status=400)
+
+    try:
+        if phone == user.phone:
+            # Self chat: find chat with exactly one participant = user
+            chat = Chat.objects.annotate(num_participants=Count('participants')) \
+                               .filter(num_participants=1, participants=user) \
+                               .first()
+            # For self-chat, do NOT exclude sender when counting unread
+            unread_messages_count = chat.messages.filter(read=False).count() if chat else 0
+        else:
+            # Normal chat between user and the phone
+            chat = Chat.objects.filter(participants__phone=user.phone) \
+                               .filter(participants__phone=phone) \
+                               .distinct() \
+                               .first()
+            # For normal chat, exclude messages sent by user
+            unread_messages_count = chat.messages.filter(read=False).exclude(sender=user).count() if chat else 0
+
+        if not chat:
+            return JsonResponse({'error': 'Chat not found'}, status=404)
+
+        is_archived = ArchivedChat.objects.filter(user=user, chat=chat).exists()
+        has_unread = unread_messages_count > 0
+        is_favourite = user.favourite_chats.filter(pk=chat.pk).exists()
+
+        return JsonResponse({
+            'is_archived': is_archived,
+            'has_unread': has_unread,
+            'is_favourite': is_favourite,
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def chat_toggle_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid method'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    phone = data.get('phone')
+    action = data.get('action')
+    user = request.user
+
+    if not phone or not action:
+        return JsonResponse({'error': 'Missing parameters'}, status=400)
+
+    # Special case: if user phone == target phone, find chats with exactly 1 participant = user (self-chat)
+    if phone == user.phone:
+        chat = Chat.objects.annotate(num_participants=Count('participants')) \
+                           .filter(num_participants=1, participants=user) \
+                           .first()
+    else:
+        # Normal case: chat with both user and target phone as participants
+        chat = Chat.objects.filter(participants__phone=user.phone) \
+                           .filter(participants__phone=phone).distinct().first()
+
+    if not chat:
+        return JsonResponse({'error': 'Chat not found'}, status=404)
+
+    try:
+        if action == 'archive':
+            archived = user.archived_chats.filter(chat=chat).exists()
+            if archived:
+                user.archived_chats.filter(chat=chat).delete()
+            else:
+                user.archived_chats.create(chat=chat)
+
+        elif action == 'mark-read':
+            # For self-chat, don't exclude sender (because sender == user)
+            if phone == user.phone:
+                unread_msgs = chat.messages.filter(read=False)
+            else:
+                unread_msgs = chat.messages.filter(read=False).exclude(sender=user)
+
+            has_unread = unread_msgs.exists()
+
+            if has_unread:
+                unread_msgs.update(read=True)
+            else:
+                chat.messages.filter(read=True).update(read=False)
+
+        elif action == 'favourite':
+            if chat in user.favourite_chats.all():
+                user.favourite_chats.remove(chat)
+            else:
+                user.favourite_chats.add(chat)
+
+        else:
+            return JsonResponse({'error': 'Invalid action'}, status=400)
+
+        # Also adjust unread count for response accordingly
+        if phone == user.phone:
+            unread_messages_count = chat.messages.filter(read=False).count()
+        else:
+            unread_messages_count = chat.messages.filter(read=False).exclude(sender=user).count()
+
+        is_archived = user.archived_chats.filter(chat=chat).exists()
+        has_unread = unread_messages_count > 0
+        is_favourite = chat in user.favourite_chats.all()
+
+        return JsonResponse({
+            'is_archived': is_archived,
+            'has_unread': has_unread,
+            'is_favourite': is_favourite,
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
