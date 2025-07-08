@@ -1,3 +1,5 @@
+let mobile;
+
 window.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.iconstuff');
 
@@ -20,7 +22,12 @@ window.addEventListener('DOMContentLoaded', () => {
         defaultButton.classList.add('active');
 
     }
+    mobile = isMobile();
+    document.getElementById('btnAll').click();
+
+
 });
+
 
 function isMobile() {
     return window.innerWidth <= 768; // or 600 or 480 depending on your layout
@@ -220,35 +227,35 @@ function getCookie(name) {
     return cookieValue;
 }
 
-const btn = document.getElementById('extra-btn');
-const menu = document.getElementById('extra-menu');
+const extraOptionsBtn = document.getElementById('chat-extra-options-button');
+const extraOptionsMenu = document.getElementById('chat-extra-options-menu');
 
-btn.addEventListener('click', (e) => {
+extraOptionsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
 
-    const rect = btn.getBoundingClientRect();
-    menu.style.top = `${rect.bottom + window.scrollY}px`;
+    const rect = extraOptionsBtn.getBoundingClientRect();
+    extraOptionsMenu.style.top = `${rect.bottom + window.scrollY}px`;
 
     if (window.innerWidth <= 768) {
-        // On mobile, anchor right side and expand leftwards
-        menu.style.right = '0px';
-        menu.style.left = 'auto'; // remove left positioning
+        extraOptionsMenu.style.right = '0px';
+        extraOptionsMenu.style.left = 'auto';
     } else {
-        // On desktop, keep original left positioning
-        menu.style.left = `${rect.left + window.scrollX - 10}px`;
-        menu.style.right = 'auto'; // remove right positioning
+        extraOptionsMenu.style.left = `${rect.left + window.scrollX - 10}px`;
+        extraOptionsMenu.style.right = 'auto';
     }
 
-    menu.classList.toggle('show');
-    menu.classList.toggle('hidden');
+    extraOptionsMenu.classList.toggle('show');
+    extraOptionsMenu.classList.toggle('hidden');
 });
 
+// Hide when clicking outside
 document.addEventListener('click', () => {
-    if (menu.classList.contains('show')) {
-        menu.classList.remove('show');
-        menu.classList.add('hidden');
+    if (extraOptionsMenu.classList.contains('show')) {
+        extraOptionsMenu.classList.remove('show');
+        extraOptionsMenu.classList.add('hidden');
     }
 });
+
 
 
 function focusSearchBar() {
@@ -293,14 +300,17 @@ chatSearchInput.addEventListener('input', async () => {
         }
 
         chatSearchResults.innerHTML = data.results.map(user => `
-      <div class="chat-search-result-item"
-           style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;"
-           data-user-id="${user.id}"
-           data-phone="${user.phone}">
-        <strong>${user.username}</strong><br/>
-        <small>${user.phone}</small>
-      </div>
-    `).join('');
+  <div class="chat-search-result-item"
+       style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;"
+       data-user-id="${user.id}"
+       data-phone="${user.phone}">
+    ${
+      user.name
+        ? `<strong>${user.name}</strong><small>${user.phone}</small>`
+        : `<strong>${user.phone}</strong>`
+    }
+  </div>
+`).join('');
         chatSearchResults.style.display = 'block';
 
     } catch (e) {
@@ -330,6 +340,64 @@ document.addEventListener('click', (e) => {
     }
 });
 
+function updateUnreadBadge(phone, unreadCount) {
+  console.log(`[updateUnreadBadge] Called with phone: "${phone}", unreadCount: ${unreadCount}`);
+
+  // Find the chat item element by data-phone attribute
+  const chatItem = document.querySelector(`.chat-item[data-phone="${phone}"]`);
+
+  if (!chatItem) {
+    console.warn(`[updateUnreadBadge] No chat-item found for phone: "${phone}"`);
+    return;
+  } else {
+    console.log(`[updateUnreadBadge] Found chat-item for phone: "${phone}"`);
+  }
+
+  let badge = chatItem.querySelector('.unread-badge');
+
+  if (unreadCount > 0) {
+    if (!badge) {
+      console.log(`[updateUnreadBadge] No existing badge found, creating one`);
+      badge = document.createElement('div');
+      badge.className = 'unread-badge';
+      chatItem.appendChild(badge);
+    } else {
+      console.log(`[updateUnreadBadge] Existing badge found, updating text`);
+    }
+    badge.textContent = unreadCount;
+    badge.style.display = 'block';
+    console.log(`[updateUnreadBadge] Badge updated/displayed with count: ${unreadCount}`);
+  } else if (badge) {
+    console.log(`[updateUnreadBadge] unreadCount is 0, hiding badge`);
+    badge.style.display = 'none';
+  } else {
+    console.log(`[updateUnreadBadge] unreadCount is 0 and no badge exists, nothing to do`);
+  }
+}
+
+async function refreshUnreadBadge(phone) {
+  try {
+    const res = await fetch(`/api/chat-status/?phone=${encodeURIComponent(phone)}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Failed to fetch unread status');
+
+    const data = await res.json();
+
+    if (data.has_unread) {
+      // Show badge with unread count or just show it if count unknown
+      // You can extend your API to send unread_count if you want exact number
+      updateUnreadBadge(phone, 1);
+    } else {
+      updateUnreadBadge(phone, 0);
+    }
+  } catch (error) {
+    console.error('Error fetching unread status:', error);
+  }
+}
 
 async function startChatWithUser(phone) {
     console.log('startChatWithUser called with phone:', phone);
@@ -360,14 +428,13 @@ async function startChatWithUser(phone) {
         console.log('Updating right-top with user info');
         const topDiv = document.querySelector('.right-top');
         const user = data.other_user;
-        const isMobile = window.innerWidth <= 768;
         topDiv.innerHTML = `
   <div class="chat-top-bar" style="display: flex; justify-content: space-between; align-items: center; height: 100%; padding:16px;">
     <div class="chat-top-bar-left" style="display: flex; align-items: center; gap: 15px;">
-      ${isMobile ? `
-        <button id="back-button" style="border: none; background: none; font-size: 1.2rem; cursor: pointer;">
-          <i class="fas fa-arrow-left"></i>
-        </button>
+      ${mobile ? `
+<button id="back-button">
+  <i class="fas fa-arrow-left"></i>
+</button>
       ` : ''}
       <img src="${user.profile_pic}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
       <div style="font-weight: 400; font-size:16px;">${user.username}</div>
@@ -387,7 +454,7 @@ async function startChatWithUser(phone) {
   </div>
 `;
 
-        if (isMobile) {
+        if (mobile) {
             document.getElementById('back-button').addEventListener('click', () => {
                 const body2 = document.querySelector('.body2');
                 const body3 = document.querySelector('.body3');
@@ -506,6 +573,7 @@ async function startChatWithUser(phone) {
         window.chatSocket.onerror = (error) => {
             console.error('WebSocket error:', error);
         };
+        await refreshUnreadBadge(phone);
 
     } catch (err) {
         console.error('Exception caught in startChatWithUser:', err);
@@ -703,3 +771,252 @@ if (backFromSettings) {
         }
     });
 }
+
+
+const btnAll = document.getElementById('btnAll');
+const btnUnread = document.getElementById('btnUnread');
+const btnFavourites = document.getElementById('btnFavourites');
+const btnGroups = document.getElementById('btnGroups');
+
+const chatRollAll = document.getElementById('chatRoll');
+const chatRollUnread = document.getElementById('chatRollUnread');
+const chatRollFavourites = document.getElementById('chatRollFavourites'); // ✅ NEW
+
+const buttons = [btnAll, btnUnread, btnFavourites, btnGroups];
+const rolls = [chatRollAll, chatRollUnread, chatRollFavourites]; // ✅ Add others like chatRollGroups if needed
+
+function clearActive() {
+    buttons.forEach(btn => btn.classList.remove('active'));
+}
+
+function hideAllRolls() {
+    rolls.forEach(roll => roll.style.display = 'none');
+}
+
+btnAll.addEventListener('click', () => {
+    hideAllRolls();
+    chatRollAll.style.display = 'flex';
+
+    clearActive();
+    btnAll.classList.add('active');
+});
+
+btnUnread.addEventListener('click', () => {
+    hideAllRolls();
+    chatRollUnread.style.display = 'flex';
+
+    clearActive();
+    btnUnread.classList.add('active');
+});
+
+btnFavourites.addEventListener('click', () => {
+    hideAllRolls();
+    chatRollFavourites.style.display = 'flex';
+
+    clearActive();
+    btnFavourites.classList.add('active');
+});
+
+btnGroups.addEventListener('click', () => {
+    hideAllRolls();
+
+    clearActive();
+    btnGroups.classList.add('active');
+});
+
+document.getElementById('archive-btn').addEventListener('click', () => {
+    document.getElementById('view-chats').style.display = 'none';
+    document.getElementById('view-archive').style.display = 'flex';
+});
+
+document.getElementById('back-to-chats').addEventListener('click', () => {
+    document.getElementById('view-archive').style.display = 'none';
+    document.getElementById('view-chats').style.display = 'flex';
+});
+
+
+const chatContextMenu = document.getElementById('chat-item-context-menu');
+
+// Hide menu on global click
+document.addEventListener('click', () => {
+    chatContextMenu.classList.add('hidden');
+    chatContextMenu.classList.remove('show'); // ✅ Ensure it's no longer active
+});
+
+
+document.querySelectorAll('.chat-item').forEach(chatItem => {
+    chatItem.addEventListener('contextmenu', async (event) => {
+        event.preventDefault();
+
+        const chatPhone = chatItem.getAttribute('data-phone');
+        chatContextMenu.setAttribute('data-phone', chatPhone);
+
+        try {
+            const response = await fetch(`/api/chat-status/?phone=${encodeURIComponent(chatPhone)}`);
+            if (!response.ok) throw new Error('Network error');
+            const status = await response.json();
+
+            // Get menu items
+            const archiveItem = chatContextMenu.querySelector('[data-action="archive"]');
+            const markReadItem = chatContextMenu.querySelector('[data-action="mark-read"]');
+            const favouriteItem = chatContextMenu.querySelector('[data-action="favourite"]');
+
+            // Update Archive text
+            if (status.is_archived) {
+                archiveItem.innerHTML = `<i class="fas fa-box-archive"></i> Unarchive chat`;
+            } else {
+                archiveItem.innerHTML = `<i class="fas fa-box-archive"></i> Archive chat`;
+            }
+
+            // Update Mark Read text & disable if no unread messages
+            if (status.has_unread) {
+                markReadItem.innerHTML = `<i class="fas fa-envelope-open"></i> Mark as read`;
+                markReadItem.style.pointerEvents = 'auto';
+                markReadItem.style.opacity = '1';
+            } else {
+                markReadItem.innerHTML = `<i class="fas fa-envelope"></i> Mark as unread`;
+                markReadItem.style.pointerEvents = 'auto'; // enable the option
+                markReadItem.style.opacity = '1'; // make it fully visible
+            }
+
+            // Update Favourite text
+            if (status.is_favourite) {
+                favouriteItem.innerHTML = `<i class="fas fa-star"></i> Remove from favourites`;
+            } else {
+                favouriteItem.innerHTML = `<i class="fas fa-star"></i> Add to favourites`;
+            }
+
+        } catch (error) {
+            console.error('Error fetching chat status:', error);
+            // Fallback: reset texts or keep defaults
+        }
+
+        // Position menu with viewport bounds check
+        const clickX = event.pageX;
+        const clickY = event.pageY;
+        const menuWidth = chatContextMenu.offsetWidth;
+        const menuHeight = chatContextMenu.offsetHeight;
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        let posX = clickX;
+        let posY = clickY;
+
+        if (clickX + menuWidth > windowWidth) {
+            posX = windowWidth - menuWidth - 10;
+        }
+        if (clickY + menuHeight > windowHeight) {
+            posY = windowHeight - menuHeight - 10;
+        }
+
+        chatContextMenu.style.top = `${posY}px`;
+        chatContextMenu.style.left = `${posX}px`;
+
+        chatContextMenu.classList.remove('hidden');
+        chatContextMenu.classList.add('show');
+    });
+});
+
+
+
+// Menu actions
+document.querySelectorAll('.chat-context-menu-item').forEach(menuItem => {
+    menuItem.addEventListener('click', (event) => {
+        const action = menuItem.getAttribute('data-action');
+        const phone = chatContextMenu.getAttribute('data-phone');
+        console.log(`Perform "${action}" on chat with phone: ${phone}`);
+
+        chatContextMenu.classList.add('hidden');
+        chatContextMenu.classList.remove('show');
+    });
+});
+
+function toggleArchiveUI(phone, isCurrentlyArchived) {
+  const chatItem = document.querySelector(`.chat-item[data-phone="${phone}"]`);
+  if (!chatItem) return;
+
+  if (isCurrentlyArchived) {
+    // Unarchive: show chat item
+    chatItem.style.display = '';
+  } else {
+    // Archive: hide chat item
+    chatItem.style.display = 'none';
+  }
+}
+
+async function toggleChatAction(phone, action, isCurrentlyArchived = false) {
+  try {
+    if (action === 'archive') {
+      // Optimistically update UI immediately for archive
+      toggleArchiveUI(phone, isCurrentlyArchived);
+    }
+
+    const response = await fetch(`/api/chat-toggle/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
+      body: JSON.stringify({ phone, action }),
+    });
+
+    if (!response.ok) throw new Error('Network error');
+    const result = await response.json();
+
+    if (action === 'mark-read') {
+      // Update unread badge UI based on response (assumes result.has_unread and/or result.unread_count)
+      const unreadCount = result.unread_count !== undefined ? result.unread_count : (result.has_unread ? 1 : 0);
+      updateUnreadBadge(phone, unreadCount);
+    } else if (action === 'archive') {
+      // Optional: you can decide if you want to reload or not here
+      // location.reload();
+    } else {
+      // For other actions, reload page to sync UI
+      location.reload();
+    }
+
+    return result;
+
+  } catch (err) {
+    console.error(`Error toggling ${action}:`, err);
+    alert(`Failed to ${action} chat.`);
+
+    // Revert UI change if archive action failed
+    if (action === 'archive') {
+      toggleArchiveUI(phone, !isCurrentlyArchived);
+    }
+  }
+}
+
+// Attach click listeners on menu items
+chatContextMenu.querySelectorAll('.chat-context-menu-item').forEach(menuItem => {
+  menuItem.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const action = menuItem.getAttribute('data-action');
+    const phone = chatContextMenu.getAttribute('data-phone');
+    if (!phone) return;
+
+    // Call API to toggle state
+    const result = await toggleChatAction(phone, action);
+    if (!result) return;  // if error, stop
+
+    // Update menu texts accordingly (or reload state)
+    if (action === 'archive') {
+      menuItem.innerHTML = result.is_archived
+        ? `<i class="fas fa-box-archive"></i> Unarchive chat`
+        : `<i class="fas fa-box-archive"></i> Archive chat`;
+    } else if (action === 'mark-read') {
+      menuItem.innerHTML = result.has_unread
+        ? `<i class="fas fa-envelope-open"></i> Mark as read`
+        : `<i class="fas fa-envelope"></i> Mark as unread`;
+    } else if (action === 'favourite') {
+      menuItem.innerHTML = result.is_favourite
+        ? `<i class="fas fa-star"></i> Remove from favourites`
+        : `<i class="fas fa-star"></i> Add to favourites`;
+    }
+
+    // Optionally close menu after action
+    chatContextMenu.classList.add('hidden');
+    chatContextMenu.classList.remove('show');
+  });
+});

@@ -38,30 +38,30 @@
                                 <button class="noticonstuff" style="cursor:pointer; font-size: 1.5rem;" data-state="addstuff">
                                     <i class="fas fa-comment-medical"></i>
                                 </button>
-                                <button id="extra-btn" class="noticonstuff" style="cursor:pointer; font-size: 1.5rem;" data-state="extrastuff">
+                                <button id="chat-extra-options-button" class="noticonstuff" style="cursor:pointer; font-size: 1.5rem;" data-state="extrastuff">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
-
-                                <div id="extra-menu" class="floating-menu hidden">
-                                    <ul class="menu-list" style="list-style:none; margin:0; padding:0;">
-                                        <li style="padding:6px 12px; cursor:pointer; display: flex; align-items: center; gap: 8px;">
+                                <div id="chat-extra-options-menu" class="chat-extra-options-menu hidden">
+                                    <ul class="chat-extra-options-list">
+                                        <li style="padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                                             <i class="fas fa-users hehe"></i> New group
                                         </li>
-                                        <li style="padding:6px 12px; cursor:pointer; display: flex; align-items: center; gap: 8px;">
+                                        <li style="padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                                             <i class="fas fa-star hehe"></i> Starred messages
                                         </li>
-                                        <li style="padding:6px 12px; cursor:pointer; display: flex; align-items: center; gap: 8px;">
+                                        <li style="padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                                             <i class="fas fa-check-square hehe"></i> Select chats
                                         </li>
-                                        <li class="mobile-only" style="padding:6px 12px; cursor:pointer; align-items: center; gap: 8px;">
+                                        <li class="mobile-only" style="padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                                             <i class="fas fa-cog hehe"></i> Settings
                                         </li>
                                         <hr class="pc-only" style="margin: 4px 0; border-color: #ddd;">
-                                        <li id="logout-btn" style="padding:6px 12px; cursor:pointer; display: flex; align-items: center; gap: 8px;">
+                                        <li id="logout-btn" style="padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                                             <i class="fas fa-sign-out-alt hehe"></i> Log out
                                         </li>
                                     </ul>
                                 </div>
+
                             </div>
                         </div>
                         <div class="chat-search-container" style="position: relative;">
@@ -73,15 +73,15 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap; padding-top: 14px; padding-bottom:5px;">
-                            <button class="bubble-btn">All</button>
-                            <button class="bubble-btn">Unread</button>
-                            <button class="bubble-btn">Favourites</button>
-                            <button class="bubble-btn">Groups</button>
+                            <button class="bubble-btn" id="btnAll">All</button>
+                            <button class="bubble-btn" id="btnUnread">Unread</button>
+                            <button class="bubble-btn" id="btnFavourites">Favourites</button>
+                            <button class="bubble-btn" id="btnGroups">Groups</button>
                         </div>
                     </div>
                     <div class="general-chat">
                         <div class="mid-chat-lower">
-                            <div class="archive-div">
+                            <div class="archive-div" id="archive-btn" style="cursor: pointer;">
                                 <i class="fas fa-box-archive"></i>
                                 <span>Archived</span>
                             </div>
@@ -96,20 +96,104 @@
                                             </div>
                                             <div class="chat-preview">{{ chat.message }}</div>
                                         </div>
+                                        {% if chat.unread_count > 0 %}
+                                            <div class="unread-badge">{{ chat.unread_count }}</div>
+                                        {% endif %}
                                     </div>
                                 {% empty %}
                                     no chats yet
                                 {% endfor %}
                             </div>
+
+                            <div class="chat-roll" id="chatRollUnread" style="display: none;">
+                                {% for chat in unreadchats %}
+                                    <div class="chat-item" data-phone="{{ chat.phone }}">
+                                        <img src="{{ chat.avatar }}" alt="{{ chat.name }}" class="chat-avatar">
+                                        <div class="chat-info">
+                                            <div class="chat-header">
+                                                <span class="chat-name">{{ chat.name }}</span>
+                                                <span class="chat-time">{{ chat.time }}</span>
+                                            </div>
+                                            <div class="chat-preview">{{ chat.message }}</div>
+                                        </div>
+                                        {% if chat.unread_count > 0 %}
+                                            <div class="unread-badge">{{ chat.unread_count }}</div>
+                                        {% endif %}
+
+                                    </div>
+                                {% empty %}
+                                    no unread chats
+                                {% endfor %}
+                            </div>
+
+                            <div class="chat-roll" id="chatRollFavourites" style="display: none;">
+                                {% for chat in favouritechats %}
+                                    <div class="chat-item" data-phone="{{ chat.phone }}">
+                                        <img src="{{ chat.avatar }}" alt="{{ chat.name }}" class="chat-avatar">
+                                        <div class="chat-info">
+                                            <div class="chat-header">
+                                                <span class="chat-name">{{ chat.name }}</span>
+                                                <span class="chat-time">{{ chat.time }}</span>
+                                            </div>
+                                            <div class="chat-preview">{{ chat.message }}</div>
+                                        </div>
+                                        {% if chat.unread_count > 0 %}
+                                            <div class="unread-badge">{{ chat.unread_count }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% empty %}
+                                    <div style="padding: 8px; color: #888;">No favourite chats</div>
+                                {% endfor %}
+                            </div>
+
+
                         </div>
                     </div>
                 </div>
+
+                <div id="view-archive" class="app-view" style="display: none; flex-direction: column;">
+                    <div class="midhead" style="display: flex;">
+                        <div class="midtopright" style="padding: none;">
+                            <button id="back-to-chats" class="noticonstuff" style="cursor:pointer; font-size: 1.3rem;">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
+                            <div style="font-size:15px;font-weight: 350; color: black; padding-left: 6px;">Archived</div>
+                        </div>
+                    </div>
+                    <div class="padding-helper">
+                        <div class="paragraphstuff">
+                            <p style="font-size:14px; color:grey; padding-top: 12px;">These chats stay archived when new messages are received. To change this experience, go to <span><b>Settings &gt; Chats</b></span> on your phone.</p>
+                            <hr>
+                        </div>
+                        <div class="general-chat">
+                            <div class="mid-chat-lower">
+                                <div class="chat-roll">
+                                    {% for chat in archived_chats %}
+                                        <div class="chat-item" data-phone="{{ chat.phone }}">
+                                            <img src="{{ chat.avatar }}" alt="{{ chat.name }}" class="chat-avatar">
+                                            <div class="chat-info">
+                                                <div class="chat-header">
+                                                    <span class="chat-name">{{ chat.name }}</span>
+                                                    <span class="chat-time">{{ chat.time }}</span>
+                                                </div>
+                                                <div class="chat-preview">{{ chat.message }}</div>
+                                            </div>
+                                        </div>
+                                    {% empty %}
+                                        <div style="text-align: center; padding: 20px;">No archived chats</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="view-settings" class="app-view" style="display: none;">
                     <div class="midset" style="padding-top:5px;">
-<div style="padding-top:5px; display: flex; align-items: center; gap: 10px;">
-  <i class="fas fa-arrow-left mobile-only" id="back-to-chats-from-settings" style="cursor: pointer;"></i>
-  <div style="font-size: 20px; font-weight: 500;">Settings</div>
-</div>
+                        <div style="padding-top:5px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-arrow-left mobile-only" id="back-to-chats-from-settings" style="cursor: pointer;"></i>
+                            <div style="font-size: 20px; font-weight: 500;">Settings</div>
+                        </div>
                         <div class="set-search-container">
                             <i class="fas fa-search search-icon"></i>
                             <input type="text" id="set-search" placeholder="Search settings" />
@@ -151,18 +235,21 @@
                                             <i class="fas fa-sign-out-alt"></i> Log out
                                         </li>
                                     </form>
-                                    <li><hr></li>
+                                    <li>
+                                        <hr>
+                                    </li>
                                 </ul>
                             </div>
 
                         </div>
+
                     </div>
                 </div>
                 <div id="view-profile" class="app-view" style="display: none;">
                     <div class="midpro" style="padding-top:5px;">
                         <div style="padding-top:5px; display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-arrow-left mobile-only" id="back-to-chats" style="cursor: pointer;"></i>
-                        <div style="font-size: 20px; font-weight: 500;">Profile</div>
+                            <i class="fas fa-arrow-left mobile-only" id="back-to-chats" style="cursor: pointer;"></i>
+                            <div style="font-size: 20px; font-weight: 500;">Profile</div>
                         </div>
                         <div class="midprochange">
                             <form action="{% url 'setup' %}" method="post" class="theform" autocomplete="off" enctype="multipart/form-data">
@@ -195,6 +282,26 @@
                             </form>
                         </div>
                     </div>
+                </div>
+
+
+
+                <div id="chat-item-context-menu" class="chat-context-menu-container hidden" style="position: absolute; z-index: 9999;">
+                    <ul class="chat-context-menu-list">
+                        <li class="chat-context-menu-item" data-action="archive" style="padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-box-archive"></i> Archive chat
+                        </li>
+                        <li class="chat-context-menu-item" data-action="mark-read" style="padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-envelope-open"></i> Mark as read
+                        </li>
+                        <li class="chat-context-menu-item" data-action="favourite" style="padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-star"></i> Add to favourites
+                        </li>
+                        <hr style="margin: 6px 0; border: none; border-top: 1px solid #eee;">
+                        <li class="chat-context-menu-item" data-action="delete" style="padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: red;">
+                            <i class="fas fa-trash-alt"></i> Delete chat
+                        </li>
+                    </ul>
                 </div>
             </div>
             <div class="body3">
