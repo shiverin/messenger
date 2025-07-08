@@ -303,7 +303,7 @@ chatSearchInput.addEventListener('input', async () => {
   <div class="chat-search-result-item"
        style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;"
        data-user-id="${user.id}"
-       data-phone="${user.phone}">
+       data-phone="${user.fullphone}">
     ${
       user.name
         ? `<strong>${user.name}</strong><small>${user.phone}</small>`

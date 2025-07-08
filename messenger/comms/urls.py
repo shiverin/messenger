@@ -15,5 +15,7 @@ urlpatterns = [
     path('api/search-users', views.search_users, name='search_users'),
     path('api/get_or_create_chat/', views.get_or_create_chat, name='get_or_create_chat'),
     path('api/messages/<int:message_id>/mark-read/', views.mark_message_read, name='mark_message_read'),
+    path('api/chat-status/', views.chat_status_api, name='chat-status-api'),
+    path('api/chat-toggle/', views.chat_toggle_api, name='chat-toggle-api'),
 ]
 

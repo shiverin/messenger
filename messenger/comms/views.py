@@ -19,6 +19,14 @@ from .serializers import ChatSerializer, MessageSerializer
 import phonenumbers
 from django.utils.timezone import localtime
 
+def get_avatar_url(user):
+    if user.profile_picture:
+        media_path = os.path.join(settings.MEDIA_ROOT, user.profile_picture.name)
+        if os.path.exists(media_path):
+            return user.profile_picture.url
+
+    return 'https://media.tenor.com/t3dLLNaI50oAAAAM/cat-cats.gif'
+
 def build_chat_data(chat, user, unread_count=None, has_unread=None):
     last_msg = chat.messages.order_by('-timestamp').first()
     if not last_msg:
@@ -30,12 +38,12 @@ def build_chat_data(chat, user, unread_count=None, has_unread=None):
         raw_phone = other.phone
         formatted_phone = raw_phone[:3] + ' ' + raw_phone[3:] if raw_phone.startswith('+') and len(raw_phone) > 3 else raw_phone
         name = other.name or formatted_phone
-        avatar = other.profile_picture.url if other.profile_picture else '/static/comms/images/default-profile.png'
+        avatar = get_avatar_url(user)
         phone = other.phone
     else:
         # Self chat
         name = "You"
-        avatar = user.profile_picture.url if user.profile_picture else '/static/comms/images/default-profile.png'
+        avatar = get_avatar_url(user)
         phone = user.phone
 
     return {
@@ -49,7 +57,7 @@ def build_chat_data(chat, user, unread_count=None, has_unread=None):
         'unread_count': unread_count if unread_count is not None else 0,
     }
 
-@login_required
+
 def index(request):
     if not request.user.is_authenticated:
         return redirect('login')
@@ -100,7 +108,7 @@ def index(request):
     favourite_chat_list = [c for c in active_chats if c['id'] in favourite_chat_ids]
 
     context = {
-        "profile_pic": user.profile_picture.url if user.profile_picture else None,
+        "profile_pic": get_avatar_url(user),
         "name": user.name,
         "about": user.about,
         "chats": active_chats,
@@ -257,6 +265,7 @@ def search_users(request):
             'phone': formatted_phone,
             'name': user.name,
             'profile_picture': user.profile_picture.url if user.profile_picture else None,
+            'fullphone': raw_phone,
         })
 
     return JsonResponse({'results': results})
@@ -310,7 +319,7 @@ def get_or_create_chat(request):
         'other_user': {
             'username': username,
             'phone': other_user.phone,
-            'profile_pic': other_user.profile_picture.url if other_user.profile_picture else '/static/comms/images/default-profile.png'
+            'profile_pic': get_avatar_url(other_user)
         },
         'messages': serialized_messages,
         'created': created

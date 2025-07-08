@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Chat, Message
+from .models import User, Chat, Message, ArchivedChat
 
 # Custom UserAdmin to show extra fields in admin for your User model
 class UserAdmin(BaseUserAdmin):
@@ -40,3 +40,9 @@ class MessageAdmin(admin.ModelAdmin):
     def text_excerpt(self, obj):
         return obj.text[:50]
     text_excerpt.short_description = 'Message Text'
+
+@admin.register(ArchivedChat)
+class ArchivedChatAdmin(admin.ModelAdmin):
+    list_display = ('user', 'chat', 'archived_at')
+    search_fields = ('user__username', 'chat__id')
+    ordering = ('-archived_at',)

@@ -7,6 +7,7 @@ class User(AbstractUser):
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     about = models.CharField(max_length=255, blank=True, default="Hey there! I am using Messenger.")
     name = models.CharField(max_length=100, blank=True, null=True)
+    favourite_chats = models.ManyToManyField('Chat', related_name='favourited_by', blank=True)
 
     def __str__(self):
         return f"{self.username} ({self.phone})"
@@ -38,3 +39,14 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.sender.username}: {self.text[:30]} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"
+
+class ArchivedChat(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='archived_chats')
+    chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='archived_by')
+    archived_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'chat')
+
+    def __str__(self):
+        return f"{self.user.username} archived Chat {self.chat.id}"
