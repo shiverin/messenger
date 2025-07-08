@@ -1,0 +1,40 @@
+# Virtual environment folder
+cleanenv/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django stuff:
+*.log
+*.pot
+*.pyc
+__pycache__/
+media/
+staticfiles/
+
+# Django migrations
+*/migrations/*.py
+*/migrations/*.pyc
+!*/migrations/__init__.py
+
+# Environment variables
+.env
+
+# VS Code
+.vscode/
+
+# JetBrains IDEs (PyCharm, IntelliJ)
+.idea/
+
+# MacOS files
+.DS_Store
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+*.swp
+*.swo

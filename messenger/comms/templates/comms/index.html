@@ -1,0 +1,39 @@
+{% extends "comms/layout.html" %}
+{% load static %}
+
+{% block body %}
+    <div class="right-entire">
+        <div class="right-top">
+
+        </div>
+        <div class="right-bottom">
+            <div class="right-bottom-upper">
+            </div>
+            <div class="right-bottom-lower">
+                <div class="chat-input-wrapper">
+                    <div class="chat-input-bar">
+                        <div class="left-icons">
+                            <button><i class="fas fa-plus"></i></button>
+                            <button><i class="far fa-smile"></i></button>
+                        </div>
+
+                        <input type="text" id="chat-input" placeholder="Type a message" autocomplete="off" />
+
+                        <div class="right-icons">
+                            <button id="send-toggle-btn">
+                                <i class="fas fa-microphone" id="send-icon"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block script %}
+<script>
+  window.currentUser = "{{ request.user.username|escapejs }}";
+</script>
+    <script src="{% static 'comms/index.js' %}"></script>
+{% endblock %}
