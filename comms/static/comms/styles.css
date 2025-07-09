@@ -52,7 +52,7 @@ body {
     flex: 1;
     background: #F4F1EB;
     height: 100%;
-    border-left: 1px solid #e0dedc;
+    border-left: 1px solid #cccac8;
 }
 
 .lefttop {
@@ -328,9 +328,9 @@ overflow-y:auto;
 
 
 .chat-search-container {
-    margin-top: 14px;
+    margin-top: 12px;
     width: auto;
-    height: 35px;
+    height: 38px;
     display: flex;
     align-items: center;
     background-color: #F6F4F5;
@@ -464,7 +464,6 @@ overflow-y:auto;
 }
 
 .archive-div {
-    margin-top: 5px;
     width: 100%;
     height: 65px;
     display: flex;
@@ -1040,15 +1039,11 @@ color:#B80631;
 
 #chat-search-results {
   display: none; /* hide by default */
-  max-height: 280px;
+  height:100%;
   overflow-y: auto;
-  border: 1px solid #ccc;
   border-radius: 6px;
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
   background: #fff;
-  position: absolute;
-  width: 100%;
-  z-index: 1000;
   font-family: Arial, sans-serif;
 }
 
@@ -1164,7 +1159,15 @@ color:#B80631;
 }
 
 ul {
-  list-style: none;       /* Remove bullets */
-  margin: 0;              /* Remove default margin */
-  padding: 0;             /* Remove default padding */
+  list-style: none;    
+  margin: 0;
+  padding: 0;
+}
+
+.chat-roll-label {
+    font-size: 16px;
+    font-weight: 560;
+    padding: 28px 16px;
+    color: #666666;
+    margin-top: 5px;
 }

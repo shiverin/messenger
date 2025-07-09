@@ -276,7 +276,6 @@ chatItems.forEach(item => {
     });
 });
 
-
 const chatSearchInput = document.getElementById('chat-search');
 const chatSearchResults = document.getElementById('chat-search-results');
 
@@ -285,32 +284,152 @@ chatSearchInput.addEventListener('input', async () => {
     if (query.length < 1) {
         chatSearchResults.style.display = 'none';
         chatSearchResults.innerHTML = '';
+        document.querySelector('.mid-chat-lower').style.display = 'flex';
         return;
     }
+    document.querySelector('.mid-chat-lower').style.display = 'none';
 
     try {
         const res = await fetch(`/api/search-users?q=${encodeURIComponent(query)}`);
         if (!res.ok) throw new Error('Search failed');
         const data = await res.json();
 
-        if (data.results.length === 0) {
-            chatSearchResults.innerHTML = '<div style="padding: 8px;">No users found</div>';
-            chatSearchResults.style.display = 'block';
-            return;
-        }
+        chatSearchResults.innerHTML = ''; // clear previous
 
-        chatSearchResults.innerHTML = data.results.map(user => `
-  <div class="chat-search-result-item"
-       style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;"
-       data-user-id="${user.id}"
-       data-phone="${user.fullphone}">
-    ${
-      user.name
-        ? `<strong>${user.name}</strong><small>${user.phone}</small>`
-        : `<strong>${user.phone}</strong>`
-    }
-  </div>
-`).join('');
+        const buildChatItem = ({
+            phone,
+            avatar,
+            name,
+            time,
+            message,
+            unread_count
+        }) => {
+            return `
+    <div class="chat-item" data-phone="${phone}">
+      <img src="${avatar || 'default-avatar.png'}" alt="${name || ''}" class="chat-avatar">
+      <div class="chat-info">
+        <div class="chat-header">
+          <span class="chat-name">${name || phone}</span>
+          <span class="chat-time">${time || ''}</span>
+        </div>
+        <div class="chat-preview">${message || ''}</div>
+      </div>
+      ${unread_count > 0 ? `<div class="unread-badge">${unread_count}</div>` : ''}
+    </div>
+  `;
+        };
+
+        const buildPeopleItem = ({
+            profile_picture,
+            name,
+            phone,
+            about
+        }) => {
+            return `
+        <div class="chat-item" data-phone="${phone}">
+          <img src="${profile_picture || 'default-avatar.png'}" alt="${name || ''}" class="chat-avatar">
+          <div class="chat-info">
+            <div class="chat-header">
+              <span class="chat-name">${name || phone}</span>
+            </div>
+            <div class="chat-preview">${about || ''}</div>
+          </div>
+        </div>
+      `;
+        };
+
+        const buildMessageItem = ({
+            chatName,
+            snippet,
+            chatId,
+            messageId,
+            otherUser,
+            time,
+            selfUser = {
+                phone: 'You',
+                profile_picture: 'https://media.tenor.com/t3dLLNaI50oAAAAM/cat-cats.gif'
+            }
+        }) => {
+            const isSelfChat = !otherUser.phone && !otherUser.name;
+
+            const displayName = isSelfChat ?
+                selfUser.name || selfUser.phone || 'You' :
+                otherUser.name || otherUser.phone || 'Unknown';
+
+            const avatar = isSelfChat ?
+                selfUser.profile_picture || 'https://media.tenor.com/t3dLLNaI50oAAAAM/cat-cats.gif' :
+                otherUser.profile_picture || 'https://media.tenor.com/t3dLLNaI50oAAAAM/cat-cats.gif';
+
+            const phoneAttr = isSelfChat ?
+                selfUser.fullphone || '' :
+                otherUser.fullphone || '';
+
+            return `
+        <div class="chat-item message-item" data-chat-id="${chatId}" data-message-id="${messageId}" data-phone="${phoneAttr}">
+          <img src="${avatar}" alt="${displayName}" class="chat-avatar">
+          <div class="chat-info">
+            <div class="chat-header">
+              <span class="chat-name">${displayName}</span>
+              <span class="chat-time">${time || ''}</span>
+            </div>
+            <div class="chat-preview">${snippet}</div>
+          </div>
+        </div>
+    `;
+        };
+
+
+        const buildChatRoll = (label, itemsHtml) => {
+            return `
+        <div class="chat-roll-section">
+          <div class="chat-roll-label">${label}</div>
+          <div class="chat-roll">
+            ${itemsHtml || `<div style="padding: 8px; color: #888;">No results</div>`}
+          </div>
+        </div>
+      `;
+        };
+
+        const chatsHtml = data.chats.map(user =>
+            buildChatItem({
+                phone: user.fullphone || '',
+                avatar: user.profile_picture || 'https://media.tenor.com/t3dLLNaI50oAAAAM/cat-cats.gif',
+                name: user.name || user.phone,
+                time: user.last_message_time || '',
+                message: user.last_message_preview || '',
+                unread_count: user.unread_count || 0
+            })
+        ).join('');
+
+        const peopleHtml = data.people.map(user =>
+            buildPeopleItem({
+                profile_picture: user.profile_picture || 'https://media.tenor.com/t3dLLNaI50oAAAAM/cat-cats.gif',
+                name: user.name || user.phone,
+                phone: user.fullphone || '',
+                about: user.about || ''
+            })
+        ).join('');
+
+        const messagesHtml = data.messages.map(msg =>
+            buildMessageItem({
+                chatId: msg.chatId,
+                messageId: msg.messageId,
+                snippet: msg.snippet,
+                chatName: msg.chatName,
+                otherUser: msg.otherUser || {
+                    profile_picture: 'https://media.tenor.com/t3dLLNaI50oAAAAM/cat-cats.gif',
+                    name: 'Unknown',
+                    phone: ''
+                },
+                time: msg.time
+            })
+        ).join('');
+
+        chatSearchResults.innerHTML =
+            buildChatRoll('Chats', chatsHtml) +
+            buildChatRoll('People', peopleHtml) +
+            buildChatRoll('Messages', messagesHtml);
+
         chatSearchResults.style.display = 'block';
 
     } catch (e) {
@@ -319,84 +438,88 @@ chatSearchInput.addEventListener('input', async () => {
     }
 });
 
+
 chatSearchResults.addEventListener('click', e => {
-    const item = e.target.closest('.chat-search-result-item');
-    if (!item) return;
+    const item = e.target.closest('.chat-item');
+    if (!item) {
+        console.log('No chat-item found on click');
+        return;
+    }
 
     const phone = item.getAttribute('data-phone');
+    console.log('Clicked item phone:', phone);
+    if (!phone) {
+        console.log('No phone data attribute on clicked item');
+        return;
+    }
+
+    // Your existing code
     showMainContent();
     startChatWithUser(phone);
     if (isMobile()) {
         swapViewForMobile();
     }
-    chatSearchResults.style.display = 'none';
-    chatSearchResults.innerHTML = '';
-    chatSearchInput.value = '';
 });
 
-document.addEventListener('click', (e) => {
-    if (!chatSearchResults.contains(e.target) && e.target !== chatSearchInput) {
-        chatSearchResults.style.display = 'none';
-    }
-});
+
 
 function updateUnreadBadge(phone, unreadCount) {
-  console.log(`[updateUnreadBadge] Called with phone: "${phone}", unreadCount: ${unreadCount}`);
+    console.log(`[updateUnreadBadge] Called with phone: "${phone}", unreadCount: ${unreadCount}`);
 
-  // Find the chat item element by data-phone attribute
-  const chatItem = document.querySelector(`.chat-item[data-phone="${phone}"]`);
+    // Find the chat item element by data-phone attribute
+    const chatItem = document.querySelector(`.chat-item[data-phone="${phone}"]`);
 
-  if (!chatItem) {
-    console.warn(`[updateUnreadBadge] No chat-item found for phone: "${phone}"`);
-    return;
-  } else {
-    console.log(`[updateUnreadBadge] Found chat-item for phone: "${phone}"`);
-  }
-
-  let badge = chatItem.querySelector('.unread-badge');
-
-  if (unreadCount > 0) {
-    if (!badge) {
-      console.log(`[updateUnreadBadge] No existing badge found, creating one`);
-      badge = document.createElement('div');
-      badge.className = 'unread-badge';
-      chatItem.appendChild(badge);
+    if (!chatItem) {
+        console.warn(`[updateUnreadBadge] No chat-item found for phone: "${phone}"`);
+        return;
     } else {
-      console.log(`[updateUnreadBadge] Existing badge found, updating text`);
+        console.log(`[updateUnreadBadge] Found chat-item for phone: "${phone}"`);
     }
-    badge.textContent = unreadCount;
-    badge.style.display = 'block';
-    console.log(`[updateUnreadBadge] Badge updated/displayed with count: ${unreadCount}`);
-  } else if (badge) {
-    console.log(`[updateUnreadBadge] unreadCount is 0, hiding badge`);
-    badge.style.display = 'none';
-  } else {
-    console.log(`[updateUnreadBadge] unreadCount is 0 and no badge exists, nothing to do`);
-  }
+
+    let badge = chatItem.querySelector('.unread-badge');
+
+    if (unreadCount > 0) {
+        if (!badge) {
+            console.log(`[updateUnreadBadge] No existing badge found, creating one`);
+            badge = document.createElement('div');
+            badge.className = 'unread-badge';
+            chatItem.appendChild(badge);
+        } else {
+            console.log(`[updateUnreadBadge] Existing badge found, updating text`);
+        }
+        badge.textContent = unreadCount;
+        badge.style.display = 'block';
+        console.log(`[updateUnreadBadge] Badge updated/displayed with count: ${unreadCount}`);
+    } else if (badge) {
+        console.log(`[updateUnreadBadge] unreadCount is 0, hiding badge`);
+        badge.style.display = 'none';
+    } else {
+        console.log(`[updateUnreadBadge] unreadCount is 0 and no badge exists, nothing to do`);
+    }
 }
 
 async function refreshUnreadBadge(phone) {
-  try {
-    const res = await fetch(`/api/chat-status/?phone=${encodeURIComponent(phone)}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-    if (!res.ok) throw new Error('Failed to fetch unread status');
+    try {
+        const res = await fetch(`/api/chat-status/?phone=${encodeURIComponent(phone)}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            },
+        });
+        if (!res.ok) throw new Error('Failed to fetch unread status');
 
-    const data = await res.json();
+        const data = await res.json();
 
-    if (data.has_unread) {
-      // Show badge with unread count or just show it if count unknown
-      // You can extend your API to send unread_count if you want exact number
-      updateUnreadBadge(phone, 1);
-    } else {
-      updateUnreadBadge(phone, 0);
+        if (data.has_unread) {
+            // Show badge with unread count or just show it if count unknown
+            // You can extend your API to send unread_count if you want exact number
+            updateUnreadBadge(phone, 1);
+        } else {
+            updateUnreadBadge(phone, 0);
+        }
+    } catch (error) {
+        console.error('Error fetching unread status:', error);
     }
-  } catch (error) {
-    console.error('Error fetching unread status:', error);
-  }
 }
 
 async function startChatWithUser(phone) {
@@ -772,6 +895,17 @@ if (backFromSettings) {
     });
 }
 
+const backFromProfile = document.getElementById('back-to-chats-from-profile');
+
+if (backFromProfile) {
+    backFromProfile.addEventListener('click', () => {
+        const chatsBtn = document.querySelector('.iconstuff[data-state="chats"]');
+        if (chatsBtn) {
+            chatsBtn.click();
+        }
+    });
+}
+
 
 const btnAll = document.getElementById('btnAll');
 const btnUnread = document.getElementById('btnUnread');
@@ -780,10 +914,10 @@ const btnGroups = document.getElementById('btnGroups');
 
 const chatRollAll = document.getElementById('chatRoll');
 const chatRollUnread = document.getElementById('chatRollUnread');
-const chatRollFavourites = document.getElementById('chatRollFavourites'); // ✅ NEW
+const chatRollFavourites = document.getElementById('chatRollFavourites');
 
 const buttons = [btnAll, btnUnread, btnFavourites, btnGroups];
-const rolls = [chatRollAll, chatRollUnread, chatRollFavourites]; // ✅ Add others like chatRollGroups if needed
+const rolls = [chatRollAll, chatRollUnread, chatRollFavourites];
 
 function clearActive() {
     buttons.forEach(btn => btn.classList.remove('active'));
@@ -834,18 +968,20 @@ document.getElementById('back-to-chats').addEventListener('click', () => {
     document.getElementById('view-chats').style.display = 'flex';
 });
 
-
 const chatContextMenu = document.getElementById('chat-item-context-menu');
 
 // Hide menu on global click
 document.addEventListener('click', () => {
     chatContextMenu.classList.add('hidden');
-    chatContextMenu.classList.remove('show'); // ✅ Ensure it's no longer active
+    chatContextMenu.classList.remove('show');
 });
 
+// Use event delegation on the parent container that holds chat items
+document.querySelectorAll('.chat-roll').forEach(chatRoll => {
+    chatRoll.addEventListener('contextmenu', async (event) => {
+        const chatItem = event.target.closest('.chat-item');
+        if (!chatItem || !chatRoll.contains(chatItem)) return; // click outside chat items, ignore
 
-document.querySelectorAll('.chat-item').forEach(chatItem => {
-    chatItem.addEventListener('contextmenu', async (event) => {
         event.preventDefault();
 
         const chatPhone = chatItem.getAttribute('data-phone');
@@ -856,30 +992,27 @@ document.querySelectorAll('.chat-item').forEach(chatItem => {
             if (!response.ok) throw new Error('Network error');
             const status = await response.json();
 
-            // Get menu items
+            // Update menu items (archive, mark-read, favourite)
             const archiveItem = chatContextMenu.querySelector('[data-action="archive"]');
             const markReadItem = chatContextMenu.querySelector('[data-action="mark-read"]');
             const favouriteItem = chatContextMenu.querySelector('[data-action="favourite"]');
 
-            // Update Archive text
             if (status.is_archived) {
                 archiveItem.innerHTML = `<i class="fas fa-box-archive"></i> Unarchive chat`;
             } else {
                 archiveItem.innerHTML = `<i class="fas fa-box-archive"></i> Archive chat`;
             }
 
-            // Update Mark Read text & disable if no unread messages
             if (status.has_unread) {
                 markReadItem.innerHTML = `<i class="fas fa-envelope-open"></i> Mark as read`;
                 markReadItem.style.pointerEvents = 'auto';
                 markReadItem.style.opacity = '1';
             } else {
                 markReadItem.innerHTML = `<i class="fas fa-envelope"></i> Mark as unread`;
-                markReadItem.style.pointerEvents = 'auto'; // enable the option
-                markReadItem.style.opacity = '1'; // make it fully visible
+                markReadItem.style.pointerEvents = 'auto';
+                markReadItem.style.opacity = '1';
             }
 
-            // Update Favourite text
             if (status.is_favourite) {
                 favouriteItem.innerHTML = `<i class="fas fa-star"></i> Remove from favourites`;
             } else {
@@ -888,10 +1021,9 @@ document.querySelectorAll('.chat-item').forEach(chatItem => {
 
         } catch (error) {
             console.error('Error fetching chat status:', error);
-            // Fallback: reset texts or keep defaults
         }
 
-        // Position menu with viewport bounds check
+        // Position the menu
         const clickX = event.pageX;
         const clickY = event.pageY;
         const menuWidth = chatContextMenu.offsetWidth;
@@ -917,9 +1049,7 @@ document.querySelectorAll('.chat-item').forEach(chatItem => {
     });
 });
 
-
-
-// Menu actions
+// Menu action clicks stay the same
 document.querySelectorAll('.chat-context-menu-item').forEach(menuItem => {
     menuItem.addEventListener('click', (event) => {
         const action = menuItem.getAttribute('data-action');
@@ -931,92 +1061,219 @@ document.querySelectorAll('.chat-context-menu-item').forEach(menuItem => {
     });
 });
 
-function toggleArchiveUI(phone, isCurrentlyArchived) {
-  const chatItem = document.querySelector(`.chat-item[data-phone="${phone}"]`);
-  if (!chatItem) return;
 
-  if (isCurrentlyArchived) {
-    // Unarchive: show chat item
-    chatItem.style.display = '';
-  } else {
-    // Archive: hide chat item
-    chatItem.style.display = 'none';
-  }
+function toggleArchiveUI(phone, isCurrentlyArchived) {
+    const chatItem = document.querySelector(`.chat-item[data-phone="${phone}"]`);
+    if (!chatItem) return;
+
+    if (isCurrentlyArchived) {
+        // Unarchive: show chat item
+        chatItem.style.display = '';
+    } else {
+        // Archive: hide chat item
+        chatItem.style.display = 'none';
+    }
 }
 
 async function toggleChatAction(phone, action, isCurrentlyArchived = false) {
-  try {
-    if (action === 'archive') {
-      // Optimistically update UI immediately for archive
-      toggleArchiveUI(phone, isCurrentlyArchived);
+    try {
+        if (action === 'archive') {
+            // Optimistically update UI immediately for archive
+            toggleArchiveUI(phone, isCurrentlyArchived);
+        }
+
+        const response = await fetch(`/api/chat-toggle/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({
+                phone,
+                action
+            }),
+        });
+
+        if (!response.ok) throw new Error('Network error');
+        const result = await response.json();
+
+        if (action === 'mark-read') {
+            // Update unread badge UI based on response (assumes result.has_unread and/or result.unread_count)
+            const unreadCount = result.unread_count !== undefined ? result.unread_count : (result.has_unread ? 1 : 0);
+            updateUnreadBadge(phone, unreadCount);
+
+        } else if (action === 'archive') {
+            loadChats();
+            loadArchive();
+
+        } else {
+            loadFavorites();
+        }
+
+        return result;
+
+    } catch (err) {
+        console.error(`Error toggling ${action}:`, err);
+        alert(`Failed to ${action} chat.`);
+
+        // Revert UI change if archive action failed
+        if (action === 'archive') {
+            toggleArchiveUI(phone, !isCurrentlyArchived);
+        }
     }
-
-    const response = await fetch(`/api/chat-toggle/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': getCookie('csrftoken'),
-      },
-      body: JSON.stringify({ phone, action }),
-    });
-
-    if (!response.ok) throw new Error('Network error');
-    const result = await response.json();
-
-    if (action === 'mark-read') {
-      // Update unread badge UI based on response (assumes result.has_unread and/or result.unread_count)
-      const unreadCount = result.unread_count !== undefined ? result.unread_count : (result.has_unread ? 1 : 0);
-      updateUnreadBadge(phone, unreadCount);
-    } else if (action === 'archive') {
-      // Optional: you can decide if you want to reload or not here
-      // location.reload();
-    } else {
-      // For other actions, reload page to sync UI
-      location.reload();
-    }
-
-    return result;
-
-  } catch (err) {
-    console.error(`Error toggling ${action}:`, err);
-    alert(`Failed to ${action} chat.`);
-
-    // Revert UI change if archive action failed
-    if (action === 'archive') {
-      toggleArchiveUI(phone, !isCurrentlyArchived);
-    }
-  }
 }
 
 // Attach click listeners on menu items
 chatContextMenu.querySelectorAll('.chat-context-menu-item').forEach(menuItem => {
-  menuItem.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const action = menuItem.getAttribute('data-action');
-    const phone = chatContextMenu.getAttribute('data-phone');
-    if (!phone) return;
+    menuItem.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const action = menuItem.getAttribute('data-action');
+        const phone = chatContextMenu.getAttribute('data-phone');
+        if (!phone) return;
 
-    // Call API to toggle state
-    const result = await toggleChatAction(phone, action);
-    if (!result) return;  // if error, stop
+        // Call API to toggle state
+        const result = await toggleChatAction(phone, action);
+        if (!result) return; // if error, stop
 
-    // Update menu texts accordingly (or reload state)
-    if (action === 'archive') {
-      menuItem.innerHTML = result.is_archived
-        ? `<i class="fas fa-box-archive"></i> Unarchive chat`
-        : `<i class="fas fa-box-archive"></i> Archive chat`;
-    } else if (action === 'mark-read') {
-      menuItem.innerHTML = result.has_unread
-        ? `<i class="fas fa-envelope-open"></i> Mark as read`
-        : `<i class="fas fa-envelope"></i> Mark as unread`;
-    } else if (action === 'favourite') {
-      menuItem.innerHTML = result.is_favourite
-        ? `<i class="fas fa-star"></i> Remove from favourites`
-        : `<i class="fas fa-star"></i> Add to favourites`;
-    }
+        // Update menu texts accordingly (or reload state)
+        if (action === 'archive') {
+            menuItem.innerHTML = result.is_archived ?
+                `<i class="fas fa-box-archive"></i> Unarchive chat` :
+                `<i class="fas fa-box-archive"></i> Archive chat`;
+        } else if (action === 'mark-read') {
+            menuItem.innerHTML = result.has_unread ?
+                `<i class="fas fa-envelope-open"></i> Mark as read` :
+                `<i class="fas fa-envelope"></i> Mark as unread`;
+        } else if (action === 'favourite') {
+            menuItem.innerHTML = result.is_favourite ?
+                `<i class="fas fa-star"></i> Remove from favourites` :
+                `<i class="fas fa-star"></i> Add to favourites`;
+        }
 
-    // Optionally close menu after action
-    chatContextMenu.classList.add('hidden');
-    chatContextMenu.classList.remove('show');
-  });
+        // Optionally close menu after action
+        chatContextMenu.classList.add('hidden');
+        chatContextMenu.classList.remove('show');
+    });
 });
+
+
+async function loadChats() {
+    const chatRoll = document.getElementById("chatRoll");
+    chatRoll.innerHTML = "";
+
+    try {
+        const response = await fetch("/api/chats/active/");
+        if (!response.ok) throw new Error("Failed to fetch");
+        const chats = await response.json();
+
+        if (chats.length === 0) {
+            chatRoll.textContent = "no chats yet";
+            return;
+        }
+
+        chats.forEach(chat => {
+            const chatItem = document.createElement("div");
+            chatItem.className = "chat-item";
+            chatItem.dataset.phone = chat.phone;
+
+            chatItem.innerHTML = `
+        <img src="${chat.avatar}" alt="${chat.name}" class="chat-avatar">
+        <div class="chat-info">
+          <div class="chat-header">
+            <span class="chat-name">${chat.name}</span>
+            <span class="chat-time">${chat.time}</span>
+          </div>
+          <div class="chat-preview">${chat.message}</div>
+        </div>
+        ${chat.unread_count > 0 ? `<div class="unread-badge">${chat.unread_count}</div>` : ""}
+      `;
+
+            chatRoll.appendChild(chatItem);
+        });
+
+    } catch (err) {
+        chatRoll.textContent = "Failed to load chats 😢";
+        console.error(err);
+    }
+}
+
+
+async function loadFavorites() {
+    const favContainer = document.getElementById("chatRollFavourites");
+    favContainer.innerHTML = "";
+
+    try {
+        const res = await fetch("/api/chats/favourites/");
+        if (!res.ok) throw new Error("Failed to fetch");
+
+        const favorites = await res.json();
+
+        if (favorites.length === 0) {
+            favContainer.innerHTML = `<div style="padding: 8px; color: #888;">No favourite chats</div>`;
+            return;
+        }
+
+        favorites.forEach(chat => {
+            const chatItem = document.createElement("div");
+            chatItem.className = "chat-item";
+            chatItem.dataset.phone = chat.phone;
+
+            chatItem.innerHTML = `
+        <img src="${chat.avatar}" alt="${chat.name}" class="chat-avatar">
+        <div class="chat-info">
+          <div class="chat-header">
+            <span class="chat-name">${chat.name}</span>
+            <span class="chat-time">${chat.time}</span>
+          </div>
+          <div class="chat-preview">${chat.message}</div>
+        </div>
+        ${chat.unread_count > 0 ? `<div class="unread-badge">${chat.unread_count}</div>` : ""}
+      `;
+
+            favContainer.appendChild(chatItem);
+        });
+
+    } catch (err) {
+        favContainer.innerHTML = `<div style="padding: 8px; color: red;">Error loading favourites</div>`;
+        console.error(err);
+    }
+}
+
+async function loadArchive() {
+    const archiveContainer = document.querySelector('#view-archive .chat-roll');
+    archiveContainer.innerHTML = ''; // Clear existing content
+
+    try {
+        const response = await fetch('/api/chats/archived/');
+        if (!response.ok) throw new Error('Failed to fetch archived chats');
+
+        const archivedChats = await response.json();
+
+        if (archivedChats.length === 0) {
+            archiveContainer.innerHTML = `<div style="text-align: center; padding: 20px;">No archived chats</div>`;
+            return;
+        }
+
+        archivedChats.forEach(chat => {
+            const chatItem = document.createElement('div');
+            chatItem.className = 'chat-item';
+            chatItem.dataset.phone = chat.phone;
+
+            chatItem.innerHTML = `
+        <img src="${chat.avatar}" alt="${chat.name}" class="chat-avatar" />
+        <div class="chat-info">
+          <div class="chat-header">
+            <span class="chat-name">${chat.name}</span>
+            <span class="chat-time">${chat.time}</span>
+          </div>
+          <div class="chat-preview">${chat.message}</div>
+        </div>
+      `;
+
+            archiveContainer.appendChild(chatItem);
+        });
+    } catch (err) {
+        archiveContainer.innerHTML = `<div style="color: red; padding: 20px; text-align: center;">Error loading archived chats.</div>`;
+        console.error(err);
+    }
+}

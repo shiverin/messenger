@@ -18,6 +18,7 @@ from django.contrib.auth import get_user_model
 from .serializers import ChatSerializer, MessageSerializer
 import phonenumbers
 from django.utils.timezone import localtime
+from django.utils.dateformat import format as django_date_format
 
 def get_avatar_url(user):
     if user.profile_picture:
@@ -118,6 +119,147 @@ def index(request):
     }
 
     return render(request, "comms/index.html", context)
+
+@login_required
+def chat_list_api(request):
+    user = request.user
+
+    # Annotate chats with last_message_time and unread_total
+    chats = Chat.objects.filter(participants=user).annotate(
+        last_message_time=Max('messages__timestamp'),
+        unread_total=Count('messages', filter=Q(messages__read=False)),
+    ).order_by('-last_message_time')
+
+    archived_chat_ids = set(
+        ArchivedChat.objects.filter(user=user).values_list('chat_id', flat=True)
+    )
+    favourite_chat_ids = set(user.favourite_chats.values_list('id', flat=True))
+
+    active_chats = []
+    archived_chats = []
+
+    for chat in chats:
+        is_self_chat = (chat.participants.count() == 1 and chat.participants.filter(id=user.id).exists())
+
+        if is_self_chat:
+            unread_count = chat.unread_total
+        else:
+            unread_count = chat.messages.filter(read=False).exclude(sender=user).count()
+
+        has_unread = unread_count > 0
+
+        chat_data = build_chat_data(chat, user, unread_count=unread_count, has_unread=has_unread)
+        if not chat_data:
+            continue
+
+        if chat.id in archived_chat_ids:
+            archived_chats.append(chat_data)
+        else:
+            active_chats.append(chat_data)
+
+    unread_chat_list = [c for c in active_chats if c['unread_count'] > 0]
+    favourite_chat_list = [c for c in active_chats if c['id'] in favourite_chat_ids]
+
+    data = {
+        "profile_pic": get_avatar_url(user),
+        "name": user.name,
+        "about": user.about,
+        "chats": active_chats,
+        "unreadchats": unread_chat_list,
+        "archived_chats": archived_chats,
+        "favouritechats": favourite_chat_list,
+    }
+
+    return JsonResponse(data)
+
+@login_required
+def api_active_chats(request):
+    user = request.user
+
+    chats = Chat.objects.filter(participants=user).annotate(
+        last_message_time=Max('messages__timestamp'),
+        unread_total=Count('messages', filter=Q(messages__read=False)),
+    ).order_by('-last_message_time')
+
+    archived_chat_ids = set(
+        ArchivedChat.objects.filter(user=user).values_list('chat_id', flat=True)
+    )
+
+    active_chats = []
+
+    for chat in chats:
+        if chat.id in archived_chat_ids:
+            continue  # skip archived in active chats
+
+        is_self_chat = (chat.participants.count() == 1 and chat.participants.filter(id=user.id).exists())
+        if is_self_chat:
+            unread_count = chat.unread_total
+        else:
+            unread_count = chat.messages.filter(read=False).exclude(sender=user).count()
+
+        has_unread = unread_count > 0
+
+        chat_data = build_chat_data(chat, user, unread_count=unread_count, has_unread=has_unread)
+        if chat_data:
+            active_chats.append(chat_data)
+
+    return JsonResponse(active_chats, safe=False)
+
+@login_required
+def api_favourite_chats(request):
+    user = request.user
+    favourite_chat_ids = set(user.favourite_chats.values_list('id', flat=True))
+
+    chats = Chat.objects.filter(id__in=favourite_chat_ids).annotate(
+        last_message_time=Max('messages__timestamp'),
+        unread_total=Count('messages', filter=Q(messages__read=False)),
+    ).order_by('-last_message_time')
+
+    favourite_chats = []
+
+    for chat in chats:
+        is_self_chat = (chat.participants.count() == 1 and chat.participants.filter(id=user.id).exists())
+        if is_self_chat:
+            unread_count = chat.unread_total
+        else:
+            unread_count = chat.messages.filter(read=False).exclude(sender=user).count()
+
+        has_unread = unread_count > 0
+
+        chat_data = build_chat_data(chat, user, unread_count=unread_count, has_unread=has_unread)
+        if chat_data:
+            favourite_chats.append(chat_data)
+
+    return JsonResponse(favourite_chats, safe=False)
+
+@login_required
+def api_archived_chats(request):
+    user = request.user
+    archived_chat_ids = set(
+        ArchivedChat.objects.filter(user=user).values_list('chat_id', flat=True)
+    )
+
+    chats = Chat.objects.filter(id__in=archived_chat_ids).annotate(
+        last_message_time=Max('messages__timestamp'),
+        unread_total=Count('messages', filter=Q(messages__read=False)),
+    ).order_by('-last_message_time')
+
+    archived_chats = []
+
+    for chat in chats:
+        is_self_chat = (chat.participants.count() == 1 and chat.participants.filter(id=user.id).exists())
+        if is_self_chat:
+            unread_count = chat.unread_total
+        else:
+            unread_count = chat.messages.filter(read=False).exclude(sender=user).count()
+
+        has_unread = unread_count > 0
+
+        chat_data = build_chat_data(chat, user, unread_count=unread_count, has_unread=has_unread)
+        if chat_data:
+            archived_chats.append(chat_data)
+
+    return JsonResponse(archived_chats, safe=False)
 
 
 def login_view(request):
@@ -241,34 +383,112 @@ def setup_api(request):
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
 
-
 @login_required
 def search_users(request):
     query = request.GET.get('q', '').strip()
+    user = request.user
+
     if not query:
-        return JsonResponse({'results': []})
+        return JsonResponse({'chats': [], 'people': [], 'messages': []})
 
-    # Include yourself in results
-    users = User.objects.filter(phone__icontains=query)[:10]
+    # 1. Active chats the user is in, annotated with message count
+    active_chats = Chat.objects.filter(participants=user).annotate(
+        message_count=Count('messages')
+    )
 
-    results = []
-    for user in users:
-        raw_phone = user.phone
-        if raw_phone.startswith('+') and len(raw_phone) > 3:
-            formatted_phone = raw_phone[3:]
-        else:
-            formatted_phone = raw_phone
+    # 2. Filter out chats with no messages
+    chats_with_messages = active_chats.filter(message_count__gt=0)
 
-        results.append({
-            'id': user.id,
-            'username': user.username,
-            'phone': formatted_phone,
-            'name': user.name,
-            'profile_picture': user.profile_picture.url if user.profile_picture else None,
+    # 3. Users in those chats (excluding self)
+    users_in_active_chats = User.objects.filter(
+        chats__in=chats_with_messages
+    ).exclude(id=user.id).distinct()
+
+    # 4. Users matching query by phone or name (excluding self)
+    matched_users = User.objects.filter(
+        Q(phone__icontains=query) | Q(name__icontains=query)
+    ).exclude(id=user.id).distinct()
+
+    # 5. Split matched users into chat users and people
+    chats_users = users_in_active_chats.filter(id__in=matched_users.values_list('id', flat=True))
+    people_users = matched_users.exclude(id__in=chats_users.values_list('id', flat=True))
+
+    # 6. Matched messages in all user chats (including empty ones)
+    matched_messages = Message.objects.filter(
+        chat__in=active_chats,
+        text__icontains=query
+    ).select_related('chat').prefetch_related('chat__participants').order_by('-timestamp')[:50]
+
+    def format_phone(phone):
+        return phone[:3] + ' ' + phone[3:] if phone.startswith('+') and len(phone) > 3 else phone
+
+    def format_user(u):
+        raw_phone = u.phone
+        return {
+            'id': u.id,
+            'username': u.username,
+            'phone': format_phone(raw_phone),
+            'name': u.name or format_phone(raw_phone),
+            'profile_picture': get_avatar_url(u),
             'fullphone': raw_phone,
-        })
+            'about': u.about,
+        }
 
-    return JsonResponse({'results': results})
+    def format_chat_user(u):
+        chat = Chat.objects.filter(participants=user, is_group=False).filter(participants=u).order_by('-created_at').first()
+        if chat:
+            last_msg = chat.messages.order_by('-timestamp').first()
+            last_message_text = last_msg.text if last_msg else ''
+            last_message_time = localtime(last_msg.timestamp).strftime('%H:%M') if last_msg else ''
+            unread_count = chat.messages.filter(read=False).exclude(sender=user).count()
+        else:
+            last_message_text = ''
+            last_message_time = ''
+            unread_count = 0
+
+        return {
+            'id': u.id,
+            'username': u.username,
+            'phone': format_phone(u.phone),
+            'name': u.name or format_phone(u.phone),
+            'profile_picture': get_avatar_url(u),
+            'fullphone': u.phone,
+            'last_message_preview': last_message_text,
+            'last_message_time': last_message_time,
+            'unread_count': unread_count,
+        }
+
+    def format_message(m):
+        snippet = m.text[:97] + '...' if len(m.text) > 100 else m.text
+        other_user = m.chat.participants.exclude(id=user.id).first()
+        other_user_data = {
+            'id': other_user.id if other_user else None,
+            'username': other_user.username if other_user else None,
+            'phone': format_phone(other_user.phone) if other_user else None,
+            'name': other_user.name if other_user else None,
+            'profile_picture': get_avatar_url(other_user) if other_user else None,
+            'fullphone': other_user.phone if other_user else None,
+            'about': other_user.about if other_user else '',
+        }
+
+        chat_name = f"Group Chat {m.chat.id}" if m.chat.is_group else other_user_data['name']
+        return {
+            'messageId': m.id,
+            'chatId': m.chat.id,
+            'chatName': chat_name,
+            'snippet': snippet,
+            'otherUser': other_user_data,
+            'time': localtime(m.timestamp).strftime('%H:%M'),
+        }
+
+    return JsonResponse({
+        'chats': [format_chat_user(u) for u in chats_users],
+        'people': [format_user(u) for u in people_users],
+        'messages': [format_message(m) for m in matched_messages],
+        'selfUser': format_user(user),  # 👈 Include the current user info
+    })
+
+
 
 
 @api_view(['POST'])
@@ -319,7 +539,7 @@ def get_or_create_chat(request):
         'other_user': {
             'username': username,
             'phone': other_user.phone,
-            'profile_pic': get_avatar_url(other_user)
+            'profile_pic': other_user.profile_picture.url if other_user.profile_picture else '/static/comms/images/default-profile.png'
         },
         'messages': serialized_messages,
         'created': created

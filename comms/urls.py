@@ -17,5 +17,9 @@ urlpatterns = [
     path('api/messages/<int:message_id>/mark-read/', views.mark_message_read, name='mark_message_read'),
     path('api/chat-status/', views.chat_status_api, name='chat-status-api'),
     path('api/chat-toggle/', views.chat_toggle_api, name='chat-toggle-api'),
+    path('api/chats/active/', views.api_active_chats, name='api_active_chats'),
+    path('api/chats/favourites/', views.api_favourite_chats, name='api_favourite_chats'),
+    path('api/chats/archived/', views.api_archived_chats, name='api_archived_chats'),
+    path('api/chats/', views.chat_list_api, name='chat_list_api'),
 ]
 

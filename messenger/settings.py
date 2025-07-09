@@ -27,12 +27,8 @@ SECRET_KEY = '13kl@xtukpwe&xj2xoysxe9_6=tf@f8ewxer5n&ifnd46+6$%8'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    '127.0.0.1',
-    'localhost',
-    '.ngrok-free.app',
-    '.onrender.com',  # Accept any subdomain on onrender.com
-]
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.ngrok-free.app']
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -84,12 +80,8 @@ ASGI_APPLICATION = 'messenger.asgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres.kiyixitqtefqrxajhmza',  # note the username with suffix
-        'PASSWORD': 'shiverin123&Z',
-        'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',
-        'PORT': '5432',  # or '6543' for transaction pooler
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
 
@@ -147,26 +139,16 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-if os.environ.get("REDIS_URL"):
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                "hosts": [os.environ["REDIS_URL"]],
-            },
-        },
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
     }
-else:
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels.layers.InMemoryChannelLayer',
-        }
-    }
+}
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://messenger-ybyw.onrender.com",
-    "http://localhost",
-    "http://127.0.0.1",
+    'https://*.ngrok-free.app', # This is critical for HTTPS ngrok URLs
+    'http://localhost:8001',    # Or your dev server port
+    'http://127.0.0.1:8001'     # Also good to include
 ]
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
