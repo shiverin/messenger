@@ -25,9 +25,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 SECRET_KEY = '13kl@xtukpwe&xj2xoysxe9_6=tf@f8ewxer5n&ifnd46+6$%8'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.ngrok-free.app']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.ngrok-free.app', 'messenger-ybyw.onrender.com']
 
 # Application definition
 
@@ -145,10 +145,6 @@ CHANNEL_LAYERS = {
     }
 }
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.ngrok-free.app', # This is critical for HTTPS ngrok URLs
-    'http://localhost:8001',    # Or your dev server port
-    'http://127.0.0.1:8001'     # Also good to include
-]
+CSRF_TRUSTED_ORIGINS = ['127.0.0.1', 'localhost', '.ngrok-free.app', 'messenger-ybyw.onrender.com']
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
