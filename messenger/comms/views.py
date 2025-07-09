@@ -38,7 +38,7 @@ def build_chat_data(chat, user, unread_count=None, has_unread=None):
         raw_phone = other.phone
         formatted_phone = raw_phone[:3] + ' ' + raw_phone[3:] if raw_phone.startswith('+') and len(raw_phone) > 3 else raw_phone
         name = other.name or formatted_phone
-        avatar = get_avatar_url(user)
+        avatar = get_avatar_url(other)
         phone = other.phone
     else:
         # Self chat
