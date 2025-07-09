@@ -145,6 +145,6 @@ CHANNEL_LAYERS = {
     }
 }
 
-CSRF_TRUSTED_ORIGINS = ['127.0.0.1', 'localhost', '.ngrok-free.app', 'messenger-ybyw.onrender.com']
+CSRF_TRUSTED_ORIGINS = ['127.0.0.1', 'localhost', '.ngrok-free.app', 'https://messenger-ybyw.onrender.com']
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
