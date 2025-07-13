@@ -539,7 +539,7 @@ def get_or_create_chat(request):
         'other_user': {
             'username': username,
             'phone': other_user.phone,
-            'profile_pic': other_user.profile_picture.url if other_user.profile_picture else '/static/comms/images/default-profile.png'
+            'profile_pic': get_avatar_url(other_user)
         },
         'messages': serialized_messages,
         'created': created
