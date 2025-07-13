@@ -155,7 +155,7 @@ This organization separates project configuration, app logic, static/media files
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/messenger.git
+   git clone https://github.com/shiverin/messenger.git
    cd messenger
    ```
 
