@@ -539,7 +539,9 @@ def get_or_create_chat(request):
         'other_user': {
             'username': username,
             'phone': other_user.phone,
-            'profile_pic': get_avatar_url(other_user)
+            'profile_pic': get_avatar_url(other_user),
+            'about': other_user.about,
+            'parsed_phone': f"{country_code} {local_number}", 
         },
         'messages': serialized_messages,
         'created': created
@@ -595,6 +597,7 @@ def chat_status_api(request):
         return JsonResponse({
             'is_archived': is_archived,
             'has_unread': has_unread,
+            'unread_count': unread_messages_count,
             'is_favourite': is_favourite,
         })
 
@@ -676,6 +679,7 @@ def chat_toggle_api(request):
         return JsonResponse({
             'is_archived': is_archived,
             'has_unread': has_unread,
+            'unread_count': unread_messages_count,
             'is_favourite': is_favourite,
         })
 

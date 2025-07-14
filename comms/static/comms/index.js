@@ -36,21 +36,23 @@ function isMobile() {
 const bottomDiv = document.querySelector('.right-bottom-upper');
 const readMessageIds = new Set();
 
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            const messageId = entry.target.dataset.messageId;
-            if (messageId && !readMessageIds.has(messageId)) {
-                console.log('Marking message as read:', messageId);
-                readMessageIds.add(messageId);
-                markMessageRead(messageId);
+function createObserverForPhone(phone) {
+    return new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const messageId = entry.target.dataset.messageId;
+                if (messageId && !readMessageIds.has(messageId)) {
+                    console.log('Marking message as read:', messageId);
+                    readMessageIds.add(messageId);
+                    markMessageRead(messageId, phone); // ✅ Now has phone
+                }
             }
-        }
+        });
+    }, {
+        root: bottomDiv,
+        threshold: 0.5
     });
-}, {
-    root: bottomDiv,
-    threshold: 0.5 // consider message read when at least half visible
-});
+}
 
 
 document.querySelector('.theform').addEventListener('submit', e => {
@@ -75,7 +77,7 @@ stateButtons.forEach(btn => {
         body2Views.forEach(view => {
             if (view.id === `view-${state}`) {
                 // If switching to chats view, use flex instead of block
-                view.style.display = (state === 'chats') ? 'flex' : 'block';
+                view.style.display = 'flex';
             } else {
                 view.style.display = 'none';
             }
@@ -92,7 +94,7 @@ stateButtons.forEach(btn => {
                 view.style.display = 'none';
                 startScreen.style.display = 'block';
             } else {
-                view.style.display = shouldShow ? 'block' : 'none';
+                view.style.display = shouldShow ? 'flex' : 'none';
             }
         });
 
@@ -510,17 +512,14 @@ async function refreshUnreadBadge(phone) {
 
         const data = await res.json();
 
-        if (data.has_unread) {
-            // Show badge with unread count or just show it if count unknown
-            // You can extend your API to send unread_count if you want exact number
-            updateUnreadBadge(phone, 1);
-        } else {
-            updateUnreadBadge(phone, 0);
-        }
+        const unreadCount = data.unread_count ?? (data.has_unread ? 1 : 0);
+        updateUnreadBadge(phone, unreadCount);
+
     } catch (error) {
         console.error('Error fetching unread status:', error);
     }
 }
+
 
 async function startChatWithUser(phone) {
     console.log('startChatWithUser called with phone:', phone);
@@ -551,6 +550,8 @@ async function startChatWithUser(phone) {
         console.log('Updating right-top with user info');
         const topDiv = document.querySelector('.right-top');
         const user = data.other_user;
+        const profilePicId = `profile-picture-${user.phone}`;
+        const profileNameId = `profile-username-${user.phone}`;
         topDiv.innerHTML = `
   <div class="chat-top-bar" style="display: flex; justify-content: space-between; align-items: center; height: 100%; padding:16px;">
     <div class="chat-top-bar-left" style="display: flex; align-items: center; gap: 15px;">
@@ -559,8 +560,8 @@ async function startChatWithUser(phone) {
   <i class="fas fa-arrow-left"></i>
 </button>
       ` : ''}
-      <img src="${user.profile_pic}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-      <div style="font-weight: 400; font-size:16px;">${user.username}</div>
+      <img src="${user.profile_pic}" id="${profilePicId}" style="cursor: pointer; width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+      <div id="${profileNameId}" style="cursor: pointer; font-weight: 400; font-size:16px;">${user.username}</div>
     </div>
     <div style="display: flex; align-items: center; gap: 10px; padding: 0px;">
       <button class="right-top-icons-two" style="cursor: pointer; font-size: 1.1rem;">
@@ -576,6 +577,73 @@ async function startChatWithUser(phone) {
     </div>
   </div>
 `;
+const profilePanel = document.querySelector('.right-right');
+profilePanel.innerHTML = `
+  <div class="view-chat-profile">
+    <div class="right-profile-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <button
+        style="border: none; cursor: pointer; font-size: 1.2rem;" id="right-close-button">
+        <i class="fas fa-times" ></i> <!-- Close icon -->
+      </button>
+      <div style="font-size:15px;">Contact Info</div>
+      </div>
+      <button style="border: none; background: none; cursor: pointer; font-size: 1.2rem;">
+        <i class="fas fa-pen"></i> <!-- Edit icon -->
+      </button>
+    </div>
+
+    <div class="right-profile-mid" style="text-align: center; padding: 16px; margin-top: 5px;">
+      <img src="${user.profile_pic}"
+           style="width: 130px; height: 130px; border-radius: 50%; object-fit: cover;">
+      <div style="margin-top: 10px; font-size: 1.4rem; font-weight: 500;">
+        ${user.username}
+      </div>
+      <div style=" font-size: 16px; color: gray; margin-top: 8px;">
+        ${user.parsed_phone}
+      </div>
+    </div>
+
+    <div style="font-size: 15px; padding: 16px; margin-left: 4px; margin-top: 8px;">
+      <div style="color: grey;">
+        About
+      </div>
+      <div style="margin-top: 5px;">${user.about || 'No status message'}</div>
+    </div>
+    <hr>
+  </div>
+`;
+const toggleTarget = document.querySelector('.right-right');
+
+const contentMain = document.getElementById('content-main');
+
+document.getElementById(profilePicId)?.addEventListener('click', () => {
+  if (mobile) {
+    if (contentMain) contentMain.style.display = 'none';
+    if (profilePanel) profilePanel.style.display = 'block';
+    profilePanel.classList.add('slide-in');
+  } else {
+    profilePanel.classList.add('slide-in'); // desktop slide-in
+  }
+});
+
+document.getElementById(profileNameId)?.addEventListener('click', () => {
+  if (mobile) {
+    if (contentMain) contentMain.style.display = 'none';
+     profilePanel.classList.add('slide-in');
+  } else {
+    profilePanel.classList.add('slide-in');
+  }
+});
+
+document.getElementById('right-close-button')?.addEventListener('click', () => {
+  if (mobile) {
+    if (contentMain) contentMain.style.display = 'block';
+    profilePanel.classList.remove('slide-in');
+  } else {
+    profilePanel.classList.remove('slide-in');
+  }
+});
 
         if (mobile) {
             document.getElementById('back-button').addEventListener('click', () => {
@@ -632,9 +700,10 @@ async function startChatWithUser(phone) {
             bubble.dataset.messageId = msg.id;
             bottomDiv.appendChild(bubble);
             // Only observe messages NOT sent by the current user (received messages)
-            if (!isSent) {
-                observer.observe(bubble);
-            }
+if (!isSent) {
+    const observer = createObserverForPhone(phone); // ✅ Create one for this phone
+    observer.observe(bubble);
+}
         });
 
         bottomDiv.scrollTop = bottomDiv.scrollHeight;
@@ -799,26 +868,27 @@ function showMainContent() {
 
 
 
-function markMessageRead(messageId) {
+function markMessageRead(messageId, phone) {
     fetch(`/api/messages/${messageId}/mark-read/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken'),
-            },
-            body: JSON.stringify({
-                read: true
-            }),
-        })
-        .then(res => {
-            if (!res.ok) throw new Error('Failed to mark read');
-            return res.json();
-        })
-        .then(data => {
-            console.log('Message marked as read:', messageId);
-            // Optionally update UI here if needed
-        })
-        .catch(err => console.error(err));
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify({
+            read: true
+        }),
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('Failed to mark read');
+        return res.json();
+    })
+    .then(data => {
+        console.log('Message marked as read:', messageId);
+        // ✅ Trigger UI update
+        refreshUnreadBadge(phone);
+    })
+    .catch(err => console.error(err));
 }
 
 function swapViewForMobile() {
@@ -1098,9 +1168,8 @@ async function toggleChatAction(phone, action, isCurrentlyArchived = false) {
         const result = await response.json();
 
         if (action === 'mark-read') {
-            // Update unread badge UI based on response (assumes result.has_unread and/or result.unread_count)
-            const unreadCount = result.unread_count !== undefined ? result.unread_count : (result.has_unread ? 1 : 0);
-            updateUnreadBadge(phone, unreadCount);
+        const unreadCount = result.unread_count !== undefined ? result.unread_count : 0;
+        updateUnreadBadge(phone, unreadCount);
 
         } else if (action === 'archive') {
             loadChats();
@@ -1259,16 +1328,17 @@ async function loadArchive() {
             chatItem.className = 'chat-item';
             chatItem.dataset.phone = chat.phone;
 
-            chatItem.innerHTML = `
-        <img src="${chat.avatar}" alt="${chat.name}" class="chat-avatar" />
-        <div class="chat-info">
-          <div class="chat-header">
-            <span class="chat-name">${chat.name}</span>
-            <span class="chat-time">${chat.time}</span>
-          </div>
-          <div class="chat-preview">${chat.message}</div>
-        </div>
-      `;
+chatItem.innerHTML = `
+  <img src="${chat.avatar}" alt="${chat.name}" class="chat-avatar" />
+  <div class="chat-info">
+    <div class="chat-header">
+      <span class="chat-name">${chat.name}</span>
+      <span class="chat-time">${chat.time}</span>
+    </div>
+    <div class="chat-preview">${chat.message}</div>
+  </div>
+  ${chat.unread_count > 0 ? `<div class="unread-badge">${chat.unread_count}</div>` : ''}
+`;
 
             archiveContainer.appendChild(chatItem);
         });
@@ -1276,4 +1346,30 @@ async function loadArchive() {
         archiveContainer.innerHTML = `<div style="color: red; padding: 20px; text-align: center;">Error loading archived chats.</div>`;
         console.error(err);
     }
+}
+
+const archiveContainer = document.querySelector('#view-archive .chat-roll');
+
+if (archiveContainer) {
+  archiveContainer.addEventListener('click', e => {
+    console.log('Clicked element:', e.target);
+    const item = e.target.closest('.chat-item');
+    console.log('Closest chat-item:', item);
+    if (!item) {
+      console.warn('No .chat-item ancestor found');
+      return;
+    }
+
+    const phone = item.dataset.phone;
+    if (!phone) return;
+
+    console.log('Clicked chat with phone:', phone);
+    if (isMobile()) {
+      swapViewForMobile();
+    }
+    startChatWithUser(phone);
+    showMainContent();
+  });
+} else {
+  console.warn('Archive container .chat-roll not found');
 }
