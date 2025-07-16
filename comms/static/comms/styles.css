@@ -176,6 +176,7 @@ height:100%;
 
 .midset{
     height:100%;
+    width:100%;
 }
 .midbottom {
     display: flex;
@@ -1217,10 +1218,10 @@ ul {
 @media (max-width: 768px) {
   .right-right.slide-in {
     width: 100%;
-    height: 100%;
+    height: 100% !important;
   }
     .right-right {
-    height:0%;
+    height:0% !important;
   }
 }
 
