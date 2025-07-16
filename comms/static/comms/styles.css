@@ -910,6 +910,7 @@ overflow-y:auto;
     padding-top: 5px;
     padding-bottom: 10px;
     min-height: 0 !important;
+    height:100% !important;
 
 }
 .chat-top-bar{
@@ -1200,7 +1201,7 @@ ul {
 }
 
 .right-right {
-will-change: width, opacity;
+  will-change: width, opacity;
   background: white;
   width: 0;
   overflow: hidden;
@@ -1212,11 +1213,14 @@ will-change: width, opacity;
   width: 440px;
   opacity: 1;
 }
-/* Mobile overrides */
+
 @media (max-width: 768px) {
   .right-right.slide-in {
-    width: 100%;     /* full width on mobile */
-    height:100%;
+    width: 100%;
+    height: 100%;
+  }
+    .right-right {
+    height:0%;
   }
 }
 
