@@ -12,7 +12,7 @@ Users can register, log in, view their chat lists, start private conversations, 
 
 This messaging app is fundamentally different from other projects in the CS50W curriculum. Unlike previous assignments that focus on RESTful APIs and asynchronous API calls, this project implements **real-time, bidirectional communication** using **WebSockets** and **Django Channels**. This architecture is more advanced and requires custom routing, consumer logic, and asynchronous event handling on the server.
 
-The application is **not a social network** (like Project 4) nor an **e-commerce site** (like Project 2). Instead, it is a private, persistent chat platform where only the two users involved in a conversation can access their messages. Each chat is uniquely identified and securely stored using Django’s ORM, ensuring privacy and data integrity. (And later deployed onto a real-world postgres database)
+The application is a private, persistent chat platform where only the two users involved in a conversation can access their messages. Each chat is uniquely identified and securely stored using Django’s ORM, ensuring privacy and data integrity. (And later deployed onto a real-world postgres database)
 
 Complexity is further demonstrated through:
 
